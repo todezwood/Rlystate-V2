@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+dist/
+.next/
+
+# Secrets — never commit these
+.env
+.env.local
+.env.*.local
+
+# Runtime artifacts
+uploads/
+
+# OS
+.DS_Store
+.claude/

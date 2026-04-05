@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+
+  listings      Listing[]
+  buyerChats    Conversation[] @relation("BuyerChats")
+  sellerChats   Conversation[] @relation("SellerChats")
+  transactions  Transaction[]
+}
+
+model Listing {
+  id          String   @id @default(uuid())
+  sellerId    String
+  title       String
+  description String
+  imageUrl    String
+  imageUrls   String[]
+  askingPrice Float
+  agreedPrice Float?
+  floorPrice  Float
+  status      String   @default("ACTIVE") // ACTIVE, DEPOSIT_HELD, SOLD
+  createdAt   DateTime @default(now())
+
+  seller        User           @relation(fields: [sellerId], references: [id])
+  conversations Conversation[]
+  transactions  Transaction[]
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  listingId String
+  buyerId   String
+  sellerId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  listing   Listing   @relation(fields: [listingId], references: [id])
+  buyer     User      @relation("BuyerChats", fields: [buyerId], references: [id])
+  seller    User      @relation("SellerChats", fields: [sellerId], references: [id])
+  messages  Message[]
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  sender         String   // e.g. "BUYER", "SELLER_AGENT", "BUYER_AGENT"
+  content        String
+  toolsCalled    String?  // JSON stringified array of tool executions
+  createdAt      DateTime @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model Transaction {
+  id        String   @id @default(uuid())
+  listingId String
+  buyerId   String
+  amount    Float
+  status    String   // "DEPOSIT_HELD"
+  createdAt DateTime @default(now())
+
+  listing   Listing   @relation(fields: [listingId], references: [id])
+  buyer     User      @relation(fields: [buyerId], references: [id])
+}

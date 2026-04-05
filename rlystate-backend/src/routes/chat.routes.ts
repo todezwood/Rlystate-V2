@@ -1,0 +1,15 @@
+import { Router } from 'express';
+import { negotiate, getHistory, getMyConversations } from '../controllers/chat.controller';
+
+const router = Router();
+
+// Buyer's conversations (must be before :listingId routes)
+router.get('/mine', getMyConversations);
+
+// Fire off a message into the Agent pipeline
+router.post('/:listingId/negotiate', negotiate);
+
+// Fetch UI timeline
+router.get('/:listingId/history', getHistory);
+
+export default router;
