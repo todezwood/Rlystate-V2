@@ -121,7 +121,7 @@ export const publishListing = async (req: Request, res: Response) => {
 export const getListings = async (req: Request, res: Response) => {
   try {
     const listings = await prisma.listing.findMany({
-      where: { status: "ACTIVE", NOT: { sellerId: req.user!.id } },
+      where: { status: "ACTIVE" },
       orderBy: { createdAt: 'desc' }
     });
     res.json(listings);

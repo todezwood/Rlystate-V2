@@ -1,64 +1,89 @@
-import React, { createContext, useContext, useState } from 'react';
-import { API_BASE } from '../lib/api';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
+import type { User } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 
 interface AuthState {
   userId: string | null;
   displayName: string | null;
+  loading: boolean;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthState>({
   userId: null,
   displayName: null,
+  loading: true,
   logout: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [userId, setUserId] = useState<string | null>(
-    localStorage.getItem('rlystate_user_id')
-  );
-  const [displayName, setDisplayName] = useState<string | null>(
-    localStorage.getItem('rlystate_user_name')
-  );
-  const [nameInput, setNameInput] = useState('');
-  const [loggingIn, setLoggingIn] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const logout = () => {
-    localStorage.removeItem('rlystate_user_id');
-    localStorage.removeItem('rlystate_user_name');
-    setUserId(null);
-    setDisplayName(null);
-  };
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+      setLoading(false);
+    });
+    return unsubscribe;
+  }, []);
 
-  const handleLogin = async () => {
-    if (!nameInput.trim()) return;
-    setLoggingIn(true);
+  const handleSubmit = async () => {
+    if (!email.trim() || !password.trim()) return;
+    setSubmitting(true);
     setError(null);
-
     try {
-      const res = await fetch(`${API_BASE}/api/auth/mock-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ displayName: nameInput.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login failed');
-
-      localStorage.setItem('rlystate_user_id', data.userId);
-      localStorage.setItem('rlystate_user_name', data.displayName);
-      setUserId(data.userId);
-      setDisplayName(data.displayName);
+      if (isSignUp) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
     } catch (err: any) {
-      setError(err.message);
+      const msg =
+        err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential'
+          ? 'Invalid email or password'
+          : err.code === 'auth/email-already-in-use'
+          ? 'Account already exists. Sign in instead.'
+          : err.code === 'auth/weak-password'
+          ? 'Password must be at least 6 characters'
+          : err.message;
+      setError(msg);
     } finally {
-      setLoggingIn(false);
+      setSubmitting(false);
     }
   };
 
-  if (!userId) {
+  const logout = () => { signOut(auth); };
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'var(--bg-primary, #0a0a0a)',
+        color: 'white',
+      }}>
+        Loading...
+      </div>
+    );
+  }
+
+  if (!firebaseUser) {
     return (
       <div style={{
         minHeight: '100vh',
@@ -72,16 +97,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '8px' }}>Rlystate</h1>
         <p style={{ color: 'var(--text-secondary, #888)', marginBottom: '32px', fontSize: '0.9rem' }}>
-          Mock login for local testing
+          {isSignUp ? 'Create your account' : 'Sign in to continue'}
         </p>
 
         <div style={{ width: '100%', maxWidth: '320px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <input
-            type="text"
-            placeholder="Enter your display name"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{
+              padding: '14px',
+              borderRadius: '8px',
+              backgroundColor: 'var(--bg-tertiary, #1a1a1a)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'white',
+              fontSize: '1rem',
+            }}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
             style={{
               padding: '14px',
               borderRadius: '8px',
@@ -92,29 +131,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }}
           />
           <button
-            onClick={handleLogin}
-            disabled={loggingIn || !nameInput.trim()}
+            onClick={handleSubmit}
+            disabled={submitting || !email.trim() || !password.trim()}
             style={{
               padding: '14px',
               borderRadius: '8px',
-              backgroundColor: loggingIn ? 'var(--bg-tertiary, #1a1a1a)' : 'var(--accent, #6366f1)',
+              backgroundColor: submitting ? 'var(--bg-tertiary, #1a1a1a)' : 'var(--accent, #6366f1)',
               color: 'white',
               border: 'none',
               fontWeight: 600,
               fontSize: '1rem',
-              cursor: loggingIn || !nameInput.trim() ? 'not-allowed' : 'pointer',
+              cursor: submitting || !email.trim() || !password.trim() ? 'not-allowed' : 'pointer',
             }}
           >
-            {loggingIn ? 'Creating session...' : 'Log In'}
+            {submitting ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
           </button>
-          {error && <div style={{ color: 'var(--negative, #ef4444)', fontSize: '0.875rem' }}>{error}</div>}
+          <button
+            onClick={() => { setIsSignUp(!isSignUp); setError(null); }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-secondary, #888)',
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              padding: '8px',
+            }}
+          >
+            {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+          </button>
+          {error && (
+            <div style={{ color: 'var(--negative, #ef4444)', fontSize: '0.875rem' }}>{error}</div>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <AuthContext.Provider value={{ userId, displayName, logout }}>
+    <AuthContext.Provider value={{
+      userId: firebaseUser.uid,
+      displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || null,
+      loading: false,
+      logout,
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,14 +1,16 @@
+import { auth } from './firebase';
+
 export const API_BASE: string = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 export async function api(path: string, options: RequestInit = {}): Promise<Response> {
-  const userId = localStorage.getItem('rlystate_user_id');
-
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> || {}),
   };
 
-  if (userId) {
-    headers['Authorization'] = `Bearer ${userId}`;
+  const user = auth.currentUser;
+  if (user) {
+    const idToken = await user.getIdToken();
+    headers['Authorization'] = `Bearer ${idToken}`;
   }
 
   // Default to JSON content type for POST/PUT/PATCH unless already set

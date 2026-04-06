@@ -99,7 +99,7 @@ export const InteractPage = () => {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '20px' }}>
-        {messages.map(m => (
+        {messages.filter(m => m.sender !== 'BUYER_AGENT').map(m => (
           <div key={m.id} style={{
             alignSelf: m.sender.includes("HUMAN") ? 'flex-end' : 'flex-start',
             backgroundColor: m.sender.includes("HUMAN") ? 'var(--accent)' : (m.sender === 'SELLER_AGENT' ? 'var(--bg-tertiary)' : 'rgba(94, 106, 210, 0.2)'),
