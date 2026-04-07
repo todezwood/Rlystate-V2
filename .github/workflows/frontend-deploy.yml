@@ -1,0 +1,35 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'rlystate-frontend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: rlystate-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: rlystate-frontend
+
+      - name: Lint
+        run: npm run lint
+        working-directory: rlystate-frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: rlystate-frontend
+
+      - name: Deploy to Firebase Hosting
+        run: npx firebase-tools deploy --only hosting --token ${{ secrets.FIREBASE_TOKEN }} --non-interactive
+        working-directory: rlystate-frontend
