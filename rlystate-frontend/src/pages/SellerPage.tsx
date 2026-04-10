@@ -168,6 +168,7 @@ export const SellerPage = () => {
   };
 
   const publishListing = async () => {
+    if (!draft) return;
     setIsLoading(true);
     try {
       const res = await api('/api/listings/publish', {
@@ -291,7 +292,7 @@ export const SellerPage = () => {
                   )}
                   <div style={{ display: 'flex', gap: '12px' }}>
                     <div style={{ display: 'flex', overflowX: 'auto', gap: '4px', width: '84px', flexShrink: 0, scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
-                      {(listing.imageUrls?.length > 0 ? listing.imageUrls : [listing.imageUrl]).map((url: string, i: number) => (
+                      {((listing.imageUrls?.length ?? 0) > 0 ? listing.imageUrls! : [listing.imageUrl]).map((url: string, i: number) => (
                         <div key={i} style={{ width: '80px', minHeight: '80px', flexShrink: 0, scrollSnapAlign: 'start', backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
                       ))}
                     </div>

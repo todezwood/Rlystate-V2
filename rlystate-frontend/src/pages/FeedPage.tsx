@@ -48,7 +48,7 @@ export const FeedPage = () => {
             <div key={listing.id} style={{ backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
 
               <div style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollbarWidth: 'none', height: '240px', backgroundColor: 'var(--bg-secondary)' }}>
-                {(listing.imageUrls?.length > 0 ? listing.imageUrls : [listing.imageUrl]).map((url: string, i: number) => (
+                {((listing.imageUrls?.length ?? 0) > 0 ? listing.imageUrls! : [listing.imageUrl]).map((url: string, i: number) => (
                   <div key={i} style={{ flex: '0 0 100%', height: '100%', scrollSnapAlign: 'start', backgroundImage: `url(${url})`, backgroundPosition: 'center', backgroundSize: 'cover' }} />
                 ))}
               </div>

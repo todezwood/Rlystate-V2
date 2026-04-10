@@ -26,11 +26,11 @@ Return your response strictly as a JSON object matching this structure:
     for (const base64Image of base64Images) {
       if (!base64Image) continue;
       const match = base64Image.match(/^data:(image\/[a-zA-Z0-9.-]+);base64,(.+)$/);
-      let mediaType = "image/jpeg";
+      let mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp" = "image/jpeg";
       let pureBase64 = base64Image;
 
       if (match) {
-        mediaType = match[1];
+        mediaType = match[1] as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
         pureBase64 = match[2];
       }
 
