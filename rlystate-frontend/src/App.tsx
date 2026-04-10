@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
 import { Search, ShoppingBag, Store, User } from 'lucide-react';
+import { AuthProvider } from './context/AuthContext';
 import { SearchPage } from './pages/SearchPage';
 import { BuyingPage } from './pages/BuyingPage';
 import { SellerPage } from './pages/SellerPage';
@@ -10,6 +11,7 @@ import './index.css';
 
 function App() {
   return (
+    <AuthProvider>
     <BrowserRouter>
       <div className="app-container">
         <Routes>
@@ -41,6 +43,7 @@ function App() {
         </nav>
       </div>
     </BrowserRouter>
+    </AuthProvider>
   );
 }
 
