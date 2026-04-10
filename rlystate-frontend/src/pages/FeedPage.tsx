@@ -3,9 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { MessageSquare } from 'lucide-react';
 import { api } from '../lib/api';
 
+interface Listing {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  imageUrls?: string[];
+  askingPrice: number;
+  isOwn?: boolean;
+}
+
 export const FeedPage = () => {
   const navigate = useNavigate();
-  const [listings, setListings] = useState<any[]>([]);
+  const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

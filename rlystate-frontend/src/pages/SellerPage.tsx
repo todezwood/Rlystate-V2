@@ -2,6 +2,23 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
+interface ListingDraft {
+  suggestedHighPrice: number;
+  suggestedLowPrice: number;
+  rationale: string;
+}
+
+interface MyListing {
+  id: string;
+  title: string;
+  imageUrl: string;
+  imageUrls?: string[];
+  askingPrice: number;
+  floorPrice: number;
+  agreedPrice?: number | null;
+  status: string;
+}
+
 export const SellerPage = () => {
   const navigate = useNavigate();
   const [images, setImages] = useState<string[]>([]);
@@ -9,11 +26,11 @@ export const SellerPage = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [draft, setDraft] = useState<any>(null);
+  const [draft, setDraft] = useState<ListingDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // My Inventory state
-  const [myListings, setMyListings] = useState<any[]>([]);
+  const [myListings, setMyListings] = useState<MyListing[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -143,8 +160,8 @@ export const SellerPage = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to evaluate listing");
       setDraft(data);
-    } catch(err: any) {
-      setError(err.message);
+    } catch(err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to evaluate listing');
     } finally {
       setIsLoading(false);
     }
@@ -163,7 +180,6 @@ export const SellerPage = () => {
           floorPrice: draft.suggestedLowPrice
         })
       });
-      const data = await res.json();
       if (!res.ok) throw new Error("Failed to publish");
 
       // Reset form and refresh inventory
@@ -173,8 +189,8 @@ export const SellerPage = () => {
       setTitle('');
       setDescription('');
       fetchMyListings();
-    } catch(err: any) {
-      setError(err.message);
+    } catch(err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to publish listing');
     } finally {
       setIsLoading(false);
     }

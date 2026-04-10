@@ -42,6 +42,7 @@ export const BuyingPage = () => {
   }, []);
 
   const formatTime = (dateStr: string) => {
+    // eslint-disable-next-line react-hooks/purity
     const diffMs = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diffMs / 60000);
     if (mins < 1) return 'just now';

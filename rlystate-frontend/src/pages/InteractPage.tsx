@@ -2,10 +2,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
+interface Message {
+  id: string;
+  sender: string;
+  content: string;
+}
+
 export const InteractPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [convInfo, setConvInfo] = useState<{ autonomyMode: string; status: string } | null>(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,14 +26,13 @@ export const InteractPage = () => {
 
   const isAuto = convInfo?.autonomyMode === 'autonomous';
   const isWalkedAway = convInfo?.status === 'walked_away';
-  const isCompleted = convInfo?.status === 'completed';
 
   const fetchHistory = () => {
     api(`/api/chat/${id}/history`)
       .then(res => res.json())
       .then(data => {
         setMessages(data);
-        if (data.some((m: any) => m.content.includes('DEAL ACCEPTED'))) {
+        if (data.some((m: Message) => m.content.includes('DEAL ACCEPTED'))) {
           setDepositReady(true);
         }
       });
@@ -46,6 +51,7 @@ export const InteractPage = () => {
   useEffect(() => {
     fetchHistory();
     fetchInfo();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Poll every 15s for autonomous conversations or active ones
@@ -62,6 +68,7 @@ export const InteractPage = () => {
       };
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isAuto]);
 
   useEffect(() => {
@@ -127,8 +134,8 @@ export const InteractPage = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Deposit failed');
       navigate('/profile');
-    } catch (err: any) {
-      setDepositError(err.message);
+    } catch (err: unknown) {
+      setDepositError(err instanceof Error ? err.message : 'Deposit failed');
     } finally {
       setDepositLoading(false);
     }

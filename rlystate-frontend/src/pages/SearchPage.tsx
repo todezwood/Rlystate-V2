@@ -24,20 +24,33 @@ const resizeImage = (file: File, maxDim = 1568): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
+interface Listing {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  imageUrls?: string[];
+  askingPrice: number;
+  floorPrice?: number;
+  status: string;
+  isOwn?: boolean;
+  similarity?: number;
+}
+
 export const SearchPage = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [listings, setListings] = useState<any[]>([]);
+  const [listings, setListings] = useState<Listing[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
 
   const [query, setQuery] = useState('');
   const [refPhotos, setRefPhotos] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  const [searchResults, setSearchResults] = useState<Listing[] | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
 
-  const [sheetListing, setSheetListing] = useState<any | null>(null);
+  const [sheetListing, setSheetListing] = useState<Listing | null>(null);
 
   useEffect(() => {
     api('/api/listings')
@@ -169,7 +182,7 @@ export const SearchPage = () => {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {displayListings.map((listing: any) => (
+          {displayListings.map((listing) => (
             <div key={listing.id} style={{ backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollbarWidth: 'none', height: 240, backgroundColor: 'var(--bg-secondary)' }}>
                 {(listing.imageUrls?.length > 0 ? listing.imageUrls : [listing.imageUrl]).map((url: string, i: number) => (

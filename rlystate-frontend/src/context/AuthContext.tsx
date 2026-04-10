@@ -22,6 +22,7 @@ const AuthContext = createContext<AuthState>({
   logout: () => {},
 });
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -51,15 +52,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const firebaseErr = err as { code?: string; message?: string };
       const msg =
-        err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential'
+        firebaseErr.code === 'auth/user-not-found' || firebaseErr.code === 'auth/invalid-credential'
           ? 'Invalid email or password'
-          : err.code === 'auth/email-already-in-use'
+          : firebaseErr.code === 'auth/email-already-in-use'
           ? 'Account already exists. Sign in instead.'
-          : err.code === 'auth/weak-password'
+          : firebaseErr.code === 'auth/weak-password'
           ? 'Password must be at least 6 characters'
-          : err.message;
+          : (firebaseErr.message ?? 'Authentication failed');
       setError(msg);
     } finally {
       setSubmitting(false);
