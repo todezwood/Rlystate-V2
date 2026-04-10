@@ -5,6 +5,11 @@ on:
     branches: [main]
     paths:
       - 'rlystate-backend/**'
+      - '.github/workflows/backend-deploy.yml'
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -31,30 +36,45 @@ jobs:
           docker build \
             --platform linux/amd64 \
             -t $IMAGE:${{ github.sha }} \
-            -t $IMAGE:latest \
             rlystate-backend/
 
       - name: Push image
-        run: |
-          docker push $IMAGE:${{ github.sha }}
-          docker push $IMAGE:latest
-
-      - name: Run Prisma migration
-        run: |
-          gcloud run jobs deploy rlystate-migrate \
-            --image $IMAGE:${{ github.sha }} \
-            --region ${{ secrets.CLOUD_RUN_REGION }} \
-            --set-env-vars DATABASE_URL=${{ secrets.DATABASE_URL }} \
-            --command npx \
-            --args "prisma,migrate,deploy"
-          gcloud run jobs execute rlystate-migrate \
-            --region ${{ secrets.CLOUD_RUN_REGION }} \
-            --wait
+        run: docker push $IMAGE:${{ github.sha }}
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy ${{ secrets.CLOUD_RUN_SERVICE }} \
             --image $IMAGE:${{ github.sha }} \
             --region ${{ secrets.CLOUD_RUN_REGION }} \
-            --platform managed \
             --quiet
+
+      - name: Verify deploy health
+        id: verify-deploy-health
+        run: |
+          URL=$(gcloud run services describe ${{ secrets.CLOUD_RUN_SERVICE }} \
+            --region ${{ secrets.CLOUD_RUN_REGION }} --format='value(status.url)')
+          echo "Probing $URL/health"
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$URL/health")
+            if [ "$code" = "200" ]; then
+              echo "Health check passed (HTTP $code)"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $code, retrying in 5s..."
+            sleep 5
+          done
+          echo "Health check failed after 6 attempts"
+          exit 1
+
+      - name: Rollback on failure
+        if: failure() && steps.verify-deploy-health.conclusion == 'failure'
+        run: |
+          PREV=$(gcloud run revisions list \
+            --service ${{ secrets.CLOUD_RUN_SERVICE }} \
+            --region ${{ secrets.CLOUD_RUN_REGION }} \
+            --format='value(metadata.name)' \
+            --limit=2 | tail -1)
+          echo "Rolling back to $PREV"
+          gcloud run services update-traffic ${{ secrets.CLOUD_RUN_SERVICE }} \
+            --region ${{ secrets.CLOUD_RUN_REGION }} \
+            --to-revisions=$PREV=100
