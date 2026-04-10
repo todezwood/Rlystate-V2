@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
 interface ConversationItem {
   conversationId: string;
+  autonomyMode: string;
+  status: string;
   listing: {
     id: string;
     title: string;
@@ -24,19 +26,37 @@ export const BuyingPage = () => {
   const navigate = useNavigate();
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
+  const fetchConversations = () => {
     api('/api/chat/mine')
       .then(res => res.json())
-      .then(data => {
-        setConversations(data);
-        setLoading(false);
-      })
+      .then(data => { setConversations(data); setLoading(false); })
       .catch(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchConversations();
+    intervalRef.current = setInterval(fetchConversations, 15000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
-  const activeNegotiations = conversations.filter(c => c.listing.status === 'ACTIVE');
-  const lockedDeals = conversations.filter(c => c.listing.status === 'DEPOSIT_HELD' || c.listing.status === 'SOLD');
+  const formatTime = (dateStr: string) => {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
+
+  const truncate = (text: string, max: number) => text.length > max ? text.slice(0, max) + '...' : text;
+
+  // Show: active conversations + deposit-held (deal locked, awaiting buyer action) + walked-away (muted)
+  const visible = conversations.filter(c =>
+    c.status === 'active' || c.listing.status === 'DEPOSIT_HELD' || c.status === 'walked_away'
+  );
 
   if (loading) {
     return (
@@ -46,130 +66,96 @@ export const BuyingPage = () => {
     );
   }
 
-  if (conversations.length === 0) {
+  if (visible.length === 0) {
     return (
       <div className="page-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', textAlign: 'center' }}>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.5 }}>
-          No active deals yet. Browse the Feed to find something you like.
+          No active negotiations yet. Head to Search to find something you like.
         </p>
       </div>
     );
   }
 
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${Math.floor(diffHours / 24)}d ago`;
-  };
-
-  const truncate = (text: string, max: number) =>
-    text.length > max ? text.slice(0, max) + '...' : text;
-
   return (
     <div className="page-content" style={{ overflowY: 'auto' }}>
-      <h1 className="page-title" style={{ fontSize: '1.5rem', marginBottom: '20px' }}>Buying</h1>
+      <h1 className="page-title" style={{ fontSize: '1.5rem', marginBottom: 20 }}>Buying</h1>
 
-      {activeNegotiations.length > 0 && (
-        <div style={{ marginBottom: '28px' }}>
-          <h2 style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '12px', letterSpacing: '0.05em' }}>
-            Active Negotiations
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {activeNegotiations.map(c => (
-              <div
-                key={c.conversationId}
-                onClick={() => navigate(`/interact/${c.listing.id}`)}
-                style={{
-                  display: 'flex',
-                  gap: '12px',
-                  padding: '12px',
-                  backgroundColor: 'var(--bg-secondary)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.15s',
-                }}
-              >
-                <div style={{ display: 'flex', overflowX: 'auto', gap: '8px', width: '64px', flexShrink: 0, scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
-                  {(c.listing.imageUrls?.length ? c.listing.imageUrls : [c.listing.imageUrl]).map((url, i) => (
-                    <div key={i} style={{ width: '56px', height: '56px', flexShrink: 0, scrollSnapAlign: 'start', backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: 'var(--radius-sm)' }} />
-                  ))}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{c.listing.title}</span>
-                    <span style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.85rem', flexShrink: 0 }}>${c.listing.askingPrice}</span>
-                  </div>
-                  {c.lastMessage && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {truncate(c.lastMessage.content.replace('DEAL ACCEPTED.', '').replace('DEAL ACCEPTED', ''), 60)}
-                      </span>
-                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', flexShrink: 0, marginLeft: '8px' }}>
-                        {formatTime(c.lastMessage.createdAt)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <h2 style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 12, letterSpacing: '0.05em' }}>
+        Negotiating
+      </h2>
 
-      {lockedDeals.length > 0 && (
-        <div>
-          <h2 style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '12px', letterSpacing: '0.05em' }}>
-            Locked Deals
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {lockedDeals.map(c => (
-              <div
-                key={c.conversationId}
-                style={{
-                  display: 'flex',
-                  gap: '12px',
-                  padding: '12px',
-                  backgroundColor: 'var(--bg-secondary)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                }}
-              >
-                <div style={{ display: 'flex', overflowX: 'auto', gap: '8px', width: '64px', flexShrink: 0, scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
-                  {(c.listing.imageUrls?.length ? c.listing.imageUrls : [c.listing.imageUrl]).map((url, i) => (
-                    <div key={i} style={{ width: '56px', height: '56px', flexShrink: 0, scrollSnapAlign: 'start', backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: 'var(--radius-sm)' }} />
-                  ))}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{c.listing.title}</span>
-                    <span style={{ color: 'var(--positive)', fontWeight: 600, fontSize: '0.85rem', flexShrink: 0 }}>${c.listing.agreedPrice || c.listing.askingPrice}</span>
-                  </div>
-                  <span style={{
-                    display: 'inline-block',
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                    backgroundColor: c.listing.status === 'SOLD' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                    color: c.listing.status === 'SOLD' ? 'var(--positive)' : '#eab308',
-                  }}>
-                    {c.listing.status === 'DEPOSIT_HELD' ? 'Deposit Held' : 'Sold'}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {visible.map(c => {
+          const isDepositReady = c.listing.status === 'DEPOSIT_HELD';
+          const isWalkedAway = c.status === 'walked_away';
+          const isAuto = c.autonomyMode === 'autonomous';
+
+          return (
+            <div
+              key={c.conversationId}
+              onClick={() => navigate(`/interact/${c.listing.id}`)}
+              style={{
+                display: 'flex', gap: 12, padding: 12,
+                backgroundColor: 'var(--bg-secondary)',
+                borderRadius: 'var(--radius-md)',
+                border: isDepositReady
+                  ? '1px solid rgba(16,185,129,0.4)'
+                  : isWalkedAway
+                  ? '1px solid rgba(255,255,255,0.04)'
+                  : '1px solid rgba(255,255,255,0.08)',
+                cursor: 'pointer',
+                opacity: isWalkedAway ? 0.6 : 1,
+              }}
+            >
+              {/* Thumbnail */}
+              <div style={{
+                width: 56, height: 56, flexShrink: 0, borderRadius: 8,
+                backgroundImage: `url(${(c.listing.imageUrls?.length ? c.listing.imageUrls : [c.listing.imageUrl])[0]})`,
+                backgroundSize: 'cover', backgroundPosition: 'center'
+              }} />
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{c.listing.title}</span>
+                  <span style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.8rem', flexShrink: 0, marginLeft: 8 }}>
+                    ${c.listing.askingPrice}
                   </span>
                 </div>
+
+                {/* Status indicators */}
+                <div style={{ display: 'flex', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+                  {isAuto && (
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'rgba(94,106,210,0.2)', color: 'var(--accent)', border: '1px solid rgba(94,106,210,0.3)', letterSpacing: '0.5px' }}>
+                      AI AGENT
+                    </span>
+                  )}
+                  {isDepositReady && (
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'rgba(16,185,129,0.15)', color: 'var(--positive)', border: '1px solid rgba(16,185,129,0.3)' }}>
+                      DEAL LOCKED
+                    </span>
+                  )}
+                  {isWalkedAway && (
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}>
+                      ENDED
+                    </span>
+                  )}
+                </div>
+
+                {c.lastMessage && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {truncate(c.lastMessage.content.replace(/DEAL ACCEPTED[^.]*/gi, ''), 55)}
+                    </span>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.65rem', flexShrink: 0, marginLeft: 8 }}>
+                      {formatTime(c.lastMessage.createdAt)}
+                    </span>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

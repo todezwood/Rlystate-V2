@@ -56,7 +56,7 @@ export const FeedPage = () => {
                 <button
                   onClick={() => navigate(`/interact/${listing.id}`)}
                   style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', padding: '12px', borderRadius: 'var(--radius-sm)', border: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', transition: 'all 0.2s' }}>
-                  <MessageSquare size={18} /> Negotiate with Seller AI
+                  <MessageSquare size={18} /> Negotiate with AI
                 </button>
               </div>
             </div>

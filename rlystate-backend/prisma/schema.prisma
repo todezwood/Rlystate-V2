@@ -14,6 +14,9 @@ model User {
   name      String?
   createdAt DateTime @default(now())
 
+  googleCalendarAccessToken  String?
+  googleCalendarRefreshToken String?
+
   listings      Listing[]
   buyerChats    Conversation[] @relation("BuyerChats")
   sellerChats   Conversation[] @relation("SellerChats")
@@ -30,6 +33,9 @@ model Listing {
   askingPrice Float
   agreedPrice Float?
   floorPrice  Float
+  priceCeiling Float?
+  condition   String   @default("used")
+  city        String   @default("")
   status      String   @default("ACTIVE") // ACTIVE, DEPOSIT_HELD, SOLD
   createdAt   DateTime @default(now())
 
@@ -39,12 +45,16 @@ model Listing {
 }
 
 model Conversation {
-  id        String   @id @default(uuid())
-  listingId String
-  buyerId   String
-  sellerId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(uuid())
+  listingId    String
+  buyerId      String
+  sellerId     String
+  autonomyMode String   @default("manual")     // "manual" | "autonomous"
+  status       String   @default("active")     // "active" | "completed" | "walked_away"
+  maxPrice     Float?
+  escalated    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   listing   Listing   @relation(fields: [listingId], references: [id])
   buyer     User      @relation("BuyerChats", fields: [buyerId], references: [id])

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { negotiate, getHistory, getMyConversations } from '../controllers/chat.controller';
+import { negotiate, getHistory, getMyConversations, getConversationInfo, declineDeal } from '../controllers/chat.controller';
 
 const router = Router();
 
@@ -11,5 +11,11 @@ router.post('/:listingId/negotiate', negotiate);
 
 // Fetch UI timeline
 router.get('/:listingId/history', getHistory);
+
+// Fetch conversation metadata (autonomyMode, status)
+router.get('/:listingId/info', getConversationInfo);
+
+// Buyer declines a completed deal — resets listing to ACTIVE
+router.post('/:listingId/decline-deal', declineDeal);
 
 export default router;

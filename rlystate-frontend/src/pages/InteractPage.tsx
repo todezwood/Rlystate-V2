@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
@@ -6,28 +6,72 @@ export const InteractPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [messages, setMessages] = useState<any[]>([]);
+  const [convInfo, setConvInfo] = useState<{ autonomyMode: string; status: string } | null>(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [depositReady, setDepositReady] = useState(false);
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositError, setDepositError] = useState<string | null>(null);
+  const [declining, setDeclining] = useState(false);
+  const [declineError, setDeclineError] = useState<string | null>(null);
+  const [confirmingDecline, setConfirmingDecline] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const isAuto = convInfo?.autonomyMode === 'autonomous';
+  const isWalkedAway = convInfo?.status === 'walked_away';
+  const isCompleted = convInfo?.status === 'completed';
+
+  const fetchHistory = () => {
     api(`/api/chat/${id}/history`)
       .then(res => res.json())
       .then(data => {
         setMessages(data);
-        if (data.some((m: any) => m.content.includes("DEAL ACCEPTED"))) {
+        if (data.some((m: any) => m.content.includes('DEAL ACCEPTED'))) {
           setDepositReady(true);
         }
       });
+  };
+
+  const fetchInfo = () => {
+    api(`/api/chat/${id}/info`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.autonomyMode) setConvInfo({ autonomyMode: data.autonomyMode, status: data.status });
+        if (data.status === 'completed') setDepositReady(true);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchHistory();
+    fetchInfo();
   }, [id]);
+
+  // Poll every 15s for autonomous conversations or active ones
+  useEffect(() => {
+    if (isAuto) {
+      const controller = new AbortController();
+      intervalRef.current = setInterval(() => {
+        fetchHistory();
+        fetchInfo();
+      }, 15000);
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        controller.abort();
+      };
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [id, isAuto]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
     setLoading(true);
 
-    // Optimistic human update
     const optimisticHuman = { id: 'temp1', sender: 'HUMAN_BUYER', content: input };
     setMessages(prev => [...prev, optimisticHuman]);
     const currentInput = input;
@@ -40,15 +84,23 @@ export const InteractPage = () => {
       });
       const data = await res.json();
 
+      if (!res.ok) {
+        setMessages(prev => prev.filter(m => m.id !== 'temp1'));
+        setInput(currentInput);
+        return;
+      }
+
       setMessages(prev => [
-        ...prev,
+        ...prev.filter(m => m.id !== 'temp1'),
+        { id: Math.random().toString(), sender: 'HUMAN_BUYER', content: currentInput },
         { id: Math.random().toString(), sender: 'BUYER_AGENT', content: data.buyerAgentMessage },
         { id: Math.random().toString(), sender: 'SELLER_AGENT', content: data.sellerAgentMessage }
       ]);
 
       if (data.depositReady) setDepositReady(true);
-    } catch(e) {
-      console.error(e);
+    } catch {
+      setMessages(prev => prev.filter(m => m.id !== 'temp1'));
+      setInput(currentInput);
     } finally {
       setLoading(false);
     }
@@ -68,13 +120,13 @@ export const InteractPage = () => {
         return;
       }
 
-      const res = await api(`/api/transactions/simulate`, {
+      const res = await api('/api/transactions/simulate', {
         method: 'POST',
         body: JSON.stringify({ listingId: id, amount })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Deposit failed');
-      navigate('/buying');
+      navigate('/profile');
     } catch (err: any) {
       setDepositError(err.message);
     } finally {
@@ -82,61 +134,140 @@ export const InteractPage = () => {
     }
   };
 
+  const declineDeal = async () => {
+    setDeclining(true);
+    setDeclineError(null);
+    setDepositError(null);
+    try {
+      const res = await api(`/api/chat/${id}/decline-deal`, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json();
+        setDeclineError(data.error || 'Failed to decline deal.');
+        setConfirmingDecline(false);
+        return;
+      }
+      navigate('/buying');
+    } catch {
+      setDeclineError('Something went wrong. Please try again.');
+      setConfirmingDecline(false);
+    } finally {
+      setDeclining(false);
+    }
+  };
+
   return (
     <div className="page-content" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
-          <h1 className="page-title" style={{ fontSize: '1.5rem', marginBottom: '4px' }}>Agent Negotiation Room</h1>
-          <p className="page-subtitle" style={{ fontSize: '0.8rem', margin: 0 }}>Listing: {id}</p>
+          <h1 className="page-title" style={{ fontSize: '1.4rem', marginBottom: 2 }}>Negotiation Room</h1>
+          {isAuto && (
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: 'rgba(94,106,210,0.2)', color: 'var(--accent)', border: '1px solid rgba(94,106,210,0.3)', letterSpacing: '0.5px' }}>
+              AI AGENT
+            </span>
+          )}
         </div>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/buying')}
           style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1, padding: '4px 8px' }}
-          aria-label="Close"
         >
           ×
         </button>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '20px' }}>
-        {messages.filter(m => m.sender !== 'BUYER_AGENT').map(m => (
-          <div key={m.id} style={{
-            alignSelf: m.sender.includes("HUMAN") ? 'flex-end' : 'flex-start',
-            backgroundColor: m.sender.includes("HUMAN") ? 'var(--accent)' : (m.sender === 'SELLER_AGENT' ? 'var(--bg-tertiary)' : 'rgba(94, 106, 210, 0.2)'),
-            padding: '12px 16px',
+      {/* Messages */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 20 }}>
+        {messages.filter(m => m.sender !== 'BUYER_AGENT').map((m, i) => (
+          <div key={m.id ?? i} style={{
+            alignSelf: m.sender === 'HUMAN_BUYER' ? 'flex-end' : 'flex-start',
+            backgroundColor: m.sender === 'HUMAN_BUYER' ? 'var(--accent)' : 'var(--bg-tertiary)',
+            padding: '10px 14px',
             borderRadius: 'var(--radius-md)',
-            border: m.sender.includes('AGENT') ? '1px solid rgba(255,255,255,0.1)' : 'none',
-            maxWidth: '85%'
+            border: m.sender === 'SELLER_AGENT' ? '1px solid rgba(255,255,255,0.1)' : 'none',
+            maxWidth: '82%'
           }}>
-            <span style={{ display: 'block', fontSize: '0.65rem', textTransform: 'uppercase', color: m.sender.includes('HUMAN') ? 'rgba(255,255,255,0.7)' : 'var(--text-secondary)', marginBottom: '4px' }}>
-              {m.sender.replace('_', ' ')}
+            <span style={{ display: 'block', fontSize: '0.6rem', textTransform: 'uppercase', color: m.sender === 'HUMAN_BUYER' ? 'rgba(255,255,255,0.6)' : 'var(--text-secondary)', marginBottom: 3 }}>
+              {m.sender === 'SELLER_AGENT' ? 'Seller Agent' : 'You'}
             </span>
-            <span style={{ fontSize: '0.9rem', lineHeight: 1.4 }}>{m.content.replace('DEAL ACCEPTED.', '').replace('DEAL ACCEPTED', '')}</span>
+            <span style={{ fontSize: '0.875rem', lineHeight: 1.45 }}>
+              {m.content.replace(/DEAL ACCEPTED[^.]*\./gi, '').trim() || m.content}
+            </span>
           </div>
         ))}
-        {loading && <div style={{ color: 'var(--text-secondary)', alignSelf: 'flex-start', fontSize: '0.8rem' }}>AI Agents are negotiating...</div>}
+        {loading && (
+          <div style={{ color: 'var(--text-secondary)', alignSelf: 'flex-start', fontSize: '0.8rem' }}>Agents are negotiating...</div>
+        )}
+        <div ref={messagesEndRef} />
       </div>
 
-      {!depositReady ? (
-        <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your raw offer..."
-            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            style={{ flex: 1, padding: '14px', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-tertiary)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
-          />
-          <button onClick={sendMessage} disabled={loading} style={{ backgroundColor: 'var(--accent)', color: 'white', padding: '0 20px', borderRadius: 'var(--radius-lg)', border: 'none', fontWeight: 600 }}>
-            Send
-          </button>
-        </div>
-      ) : (
-        <div style={{ marginTop: 'auto', padding: '16px', backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--positive)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-          <h4 style={{ color: 'var(--positive)', marginBottom: '8px' }}>Negotiation Successful!</h4>
-          <button onClick={executeDeposit} disabled={depositLoading} style={{ backgroundColor: depositLoading ? 'grey' : 'var(--positive)', color: 'white', width: '100%', padding: '14px', borderRadius: 'var(--radius-sm)', border: 'none', fontWeight: 'bold', cursor: depositLoading ? 'not-allowed' : 'pointer' }}>
+      {/* Bottom area */}
+      {depositReady ? (
+        <div style={{ marginTop: 'auto', padding: 16, backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid var(--positive)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+          <h4 style={{ color: 'var(--positive)', marginBottom: 8 }}>Deal reached!</h4>
+          <button
+            onClick={executeDeposit}
+            disabled={depositLoading || declining || confirmingDecline}
+            style={{ backgroundColor: (depositLoading || confirmingDecline) ? 'grey' : 'var(--positive)', color: 'white', width: '100%', padding: 14, borderRadius: 'var(--radius-sm)', border: 'none', fontWeight: 700, cursor: (depositLoading || confirmingDecline) ? 'not-allowed' : 'pointer', marginBottom: 8 }}
+          >
             {depositLoading ? 'Processing...' : 'Lock in Deal'}
           </button>
-          {depositError && <div style={{ color: 'var(--negative)', fontSize: '0.8rem', marginTop: '8px' }}>{depositError}</div>}
+          {!confirmingDecline ? (
+            <button
+              onClick={() => setConfirmingDecline(true)}
+              disabled={depositLoading || declining}
+              style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-secondary)', width: '100%', padding: 11, borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+            >
+              Decline Deal
+            </button>
+          ) : (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => setConfirmingDecline(false)}
+                disabled={declining}
+                style={{ flex: 1, background: 'none', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-secondary)', padding: 11, borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                Keep Deal
+              </button>
+              <button
+                onClick={declineDeal}
+                disabled={declining}
+                style={{ flex: 1, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#EF4444', padding: 11, borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: declining ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}
+              >
+                {declining ? 'Declining...' : 'Yes, Decline'}
+              </button>
+            </div>
+          )}
+          {(depositError || declineError) && (
+            <div style={{ color: 'var(--negative)', fontSize: '0.8rem', marginTop: 8 }}>{depositError || declineError}</div>
+          )}
+        </div>
+      ) : isWalkedAway ? (
+        <div style={{ marginTop: 'auto', padding: 14, backgroundColor: 'var(--bg-secondary)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: 12 }}>
+            The agent wasn't able to reach a deal within your budget.
+          </p>
+          <button onClick={() => navigate('/search')} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-secondary)', padding: '8px 20px', borderRadius: 8, cursor: 'pointer', fontSize: '0.85rem' }}>
+            Try another listing
+          </button>
+        </div>
+      ) : isAuto ? (
+        <div style={{ marginTop: 'auto', padding: 14, backgroundColor: 'var(--bg-secondary)', border: '1px solid rgba(94,106,210,0.2)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+            AI agent is negotiating on your behalf. You'll be notified when a deal is reached.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="Type your offer..."
+            onKeyDown={e => e.key === 'Enter' && sendMessage()}
+            style={{ flex: 1, padding: 14, borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-tertiary)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontFamily: 'inherit' }}
+          />
+          <button onClick={sendMessage} disabled={loading} style={{ backgroundColor: 'var(--accent)', color: 'white', padding: '0 20px', borderRadius: 'var(--radius-lg)', border: 'none', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer' }}>
+            Send
+          </button>
         </div>
       )}
     </div>

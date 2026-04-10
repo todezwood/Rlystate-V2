@@ -6,6 +6,7 @@ import { authMiddleware } from './middleware/auth.middleware';
 import listingRoutes from './routes/listing.routes';
 import chatRoutes from './routes/chat.routes';
 import transactionRoutes from './routes/transaction.routes';
+import buyerRoutes, { profileRouter } from './routes/buyer.routes';
 
 dotenv.config();
 
@@ -23,6 +24,8 @@ app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 app.use('/api/listings', authMiddleware, listingRoutes);
 app.use('/api/chat', authMiddleware, chatRoutes);
 app.use('/api/transactions', authMiddleware, transactionRoutes);
+app.use('/api/buyer', authMiddleware, buyerRoutes);
+app.use('/api/profile', authMiddleware, profileRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'rlystate-backend' });

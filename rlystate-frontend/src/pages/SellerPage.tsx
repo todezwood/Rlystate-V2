@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
@@ -15,6 +15,7 @@ export const SellerPage = () => {
   // My Inventory state
   const [myListings, setMyListings] = useState<any[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchMyListings = () => {
     api('/api/listings/me')
@@ -28,6 +29,8 @@ export const SellerPage = () => {
 
   useEffect(() => {
     fetchMyListings();
+    intervalRef.current = setInterval(fetchMyListings, 15000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
   // Smart Image Compression to bypass Anthropic 5MB limits
@@ -239,51 +242,76 @@ export const SellerPage = () => {
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>No listings yet. Upload your first item above.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {myListings.map(listing => (
-              <div key={listing.id} style={{
-                display: 'flex',
-                gap: '12px',
-                backgroundColor: 'var(--bg-tertiary)',
-                borderRadius: 'var(--radius-sm)',
-                overflow: 'hidden',
-                border: '1px solid rgba(255,255,255,0.05)',
-              }}>
-                <div style={{ display: 'flex', overflowX: 'auto', gap: '4px', width: '84px', flexShrink: 0, scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
-                  {(listing.imageUrls?.length > 0 ? listing.imageUrls : [listing.imageUrl]).map((url: string, i: number) => (
-                    <div key={i} style={{ width: '80px', minHeight: '80px', flexShrink: 0, scrollSnapAlign: 'start', backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-                  ))}
-                </div>
-                <div style={{ padding: '10px 10px 10px 0', flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '4px' }}>{listing.title}</div>
-                  
-                  {listing.status === 'ACTIVE' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--positive)', fontWeight: 600 }}>
-                        List Price: ${listing.askingPrice}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 500 }}>
-                        Minimum Acceptable: ${listing.floorPrice}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--positive)', fontWeight: 600 }}>
-                        Final Agreed Deal: ${listing.agreedPrice || listing.askingPrice}
-                      </div>
+            {myListings.map(listing => {
+              const isDepositHeld = listing.status === 'DEPOSIT_HELD';
+              return (
+                <div
+                  key={listing.id}
+                  onClick={isDepositHeld ? () => navigate('/profile') : undefined}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    backgroundColor: 'var(--bg-tertiary)',
+                    borderRadius: 'var(--radius-sm)',
+                    overflow: 'hidden',
+                    border: isDepositHeld ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.05)',
+                    cursor: isDepositHeld ? 'pointer' : 'default',
+                  }}
+                >
+                  {isDepositHeld && (
+                    <div style={{
+                      backgroundColor: 'rgba(16,185,129,0.12)',
+                      borderBottom: '1px solid rgba(16,185,129,0.25)',
+                      padding: '8px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}>
+                      <span style={{ color: 'var(--positive)', fontWeight: 700, fontSize: '0.8rem' }}>
+                        Deal reached at ${listing.agreedPrice || listing.askingPrice}!
+                      </span>
+                      <span style={{ color: 'var(--positive)', fontSize: '0.75rem' }}>View in Profile →</span>
                     </div>
                   )}
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ display: 'flex', overflowX: 'auto', gap: '4px', width: '84px', flexShrink: 0, scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
+                      {(listing.imageUrls?.length > 0 ? listing.imageUrls : [listing.imageUrl]).map((url: string, i: number) => (
+                        <div key={i} style={{ width: '80px', minHeight: '80px', flexShrink: 0, scrollSnapAlign: 'start', backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                      ))}
+                    </div>
+                    <div style={{ padding: '10px 10px 10px 0', flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '4px' }}>{listing.title}</div>
 
-                  <div style={{
-                    fontSize: '0.7rem',
-                    color: listing.status === 'ACTIVE' ? 'var(--positive)' : 'var(--accent)',
-                    marginTop: '4px',
-                    textTransform: 'uppercase',
-                  }}>
-                    {listing.status}
+                      {listing.status === 'ACTIVE' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--positive)', fontWeight: 600 }}>
+                            List Price: ${listing.askingPrice}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 500 }}>
+                            Minimum Acceptable: ${listing.floorPrice}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--positive)', fontWeight: 600 }}>
+                            Final Agreed Deal: ${listing.agreedPrice || listing.askingPrice}
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{
+                        fontSize: '0.7rem',
+                        color: isDepositHeld ? 'var(--positive)' : listing.status === 'ACTIVE' ? 'var(--positive)' : 'var(--accent)',
+                        marginTop: '4px',
+                        textTransform: 'uppercase',
+                      }}>
+                        {isDepositHeld ? 'Deal Locked' : listing.status}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
