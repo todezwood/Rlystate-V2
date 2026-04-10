@@ -31,7 +31,10 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     req.user = { id: user.id, displayName: user.name || undefined };
     next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
+    const e = error as { name?: string; message?: string; code?: string; clientVersion?: string; meta?: unknown };
+    console.error('[auth] error name:', e?.name);
+    console.error('[auth] error message:', e?.message);
+    console.error('[auth] error fields:', JSON.stringify({ code: e?.code, clientVersion: e?.clientVersion, meta: e?.meta }));
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
