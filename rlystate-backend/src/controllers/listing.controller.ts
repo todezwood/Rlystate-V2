@@ -82,7 +82,7 @@ export const evaluateAndDraft = async (req: Request, res: Response) => {
     try {
       const cleaned = aiText.replace(/```json\n?/, '').replace(/```/, '');
       draft = JSON.parse(cleaned);
-    } catch(_e) {
+    } catch {
       console.error("Failed to parse strictly as JSON:", aiText);
        res.status(500).json({ error: "AI returned invalid format", raw: aiText });
        return;
@@ -125,7 +125,7 @@ export const publishListing = async (req: Request, res: Response) => {
           listing.id
         );
       })
-      .catch((_err: unknown) => console.error('[embed] Failed to embed listing'));
+      .catch(() => console.error('[embed] Failed to embed listing'));
 
     res.json(listing);
   } catch (error) {
@@ -145,7 +145,7 @@ export const getListings = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const tagged = listings.map(l => ({ ...l, isOwn: l.sellerId === userId }));
     res.json(tagged);
-  } catch(error) {
+  } catch {
      res.status(500).json({ error: "DB Fetch Failure" });
   }
 };
@@ -158,7 +158,7 @@ export const getMyListings = async (req: Request, res: Response) => {
       orderBy: { createdAt: 'desc' },
     });
     res.json(listings);
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: "DB Fetch Failure" });
   }
 };

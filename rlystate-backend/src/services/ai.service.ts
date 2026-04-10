@@ -21,7 +21,7 @@ Return your response strictly as a JSON object matching this structure:
   "rationale": "<brief explanation>"
 }`;
 
-    const contentBlocks: any[] = [];
+    const contentBlocks: Anthropic.Messages.ContentBlockParam[] = [];
 
     for (const base64Image of base64Images) {
       if (!base64Image) continue;
@@ -110,7 +110,7 @@ No explanation. No punctuation other than the >.`,
    * Used by the Negotiation Agents (Seller Agent & Buyer Agent)
    * Runs on Claude Haiku 4.5 for blazing speed and low cost.
    */
-  async chatWithAgent(systemPrompt: string, messageHistory: any[], model: string = "claude-haiku-4-5-20251001") {
+  async chatWithAgent(systemPrompt: string, messageHistory: Array<{ role: 'user' | 'assistant'; content: string }>, model: string = "claude-haiku-4-5-20251001") {
     const response = await anthropic.messages.create({
       model,
       max_tokens: 1000,

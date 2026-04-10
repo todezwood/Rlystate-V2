@@ -106,7 +106,7 @@ export const getHistory = async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     });
     res.json(messages);
-  } catch (_error: unknown) {
+  } catch {
     res.status(500).json({ error: 'Failed to fetch history' });
   }
 };
@@ -179,7 +179,7 @@ export const getConversationInfo = async (req: Request, res: Response) => {
       status: conversation.status,
       listing: conversation.listing
     });
-  } catch (_error: unknown) {
+  } catch {
     res.status(500).json({ error: 'Failed to fetch conversation info' });
   }
 };

@@ -42,9 +42,10 @@ export const simulateDeposit = async (req: Request, res: Response) => {
     ]);
 
     res.json({ success: true, transaction });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Simulate Deposit Error:", error);
-    res.status(500).json({ error: error.message || "Failed to simulate deposit" });
+    const message = error instanceof Error ? error.message : "Failed to simulate deposit";
+    res.status(500).json({ error: message });
   }
 };
 
@@ -59,7 +60,7 @@ export const getTransactionByListing = async (req: Request, res: Response) => {
     });
 
     res.json(transaction || null);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Get Transaction Error:", error);
     res.status(500).json({ error: "Failed to fetch transaction" });
   }

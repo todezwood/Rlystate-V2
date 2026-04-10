@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { AIService } from './ai.service';
-import { EmbeddingService } from './embedding.service';
+// TODO: wire EmbeddingService into negotiation context once semantic search per-round is needed
 
 export interface NegotiationResult {
   buyerAgentMessage: string;
@@ -18,7 +18,7 @@ export const NegotiationService = {
     const listing = await prisma.listing.findUnique({ where: { id: listingId } });
     if (!listing) throw new Error('Listing not found');
 
-    let conversation = await prisma.conversation.findFirst({
+    const conversation = await prisma.conversation.findFirst({
       where: { listingId, buyerId, status: 'active' }
     });
     if (!conversation) throw new Error('No active conversation found');
@@ -33,8 +33,8 @@ Formulate a strictly professional negotiation attempt or response to deliver to 
     let buyerFormalMessage = '';
     try {
       const buyerRes = await AIService.chatWithAgent(buyerAgentPrompt, [], 'claude-haiku-4-5-20251001');
-      buyerFormalMessage = (buyerRes.content[0] as any).text;
-    } catch (err) {
+      buyerFormalMessage = (buyerRes.content[0] as { text: string }).text;
+    } catch {
       buyerFormalMessage = userMessage;
     }
 
@@ -47,10 +47,10 @@ Formulate a strictly professional negotiation attempt or response to deliver to 
       orderBy: { createdAt: 'asc' }
     });
 
-    const claudeHistory = history
+    const claudeHistory: Array<{ role: 'user' | 'assistant'; content: string }> = history
       .filter(m => m.sender === 'BUYER_AGENT' || m.sender === 'SELLER_AGENT')
       .map(m => ({
-        role: m.sender === 'SELLER_AGENT' ? 'assistant' : 'user',
+        role: (m.sender === 'SELLER_AGENT' ? 'assistant' : 'user') as 'user' | 'assistant',
         content: m.content
       }));
 
@@ -63,8 +63,8 @@ If below, counter-offer strictly between the offer and the Asking Price, or hold
 You must output a professional, brief negotiation message.
 If you accept an offer, end your message EXACTLY with the phrase: "DEAL ACCEPTED AT $[AMOUNT]." (e.g. "DEAL ACCEPTED AT $450.")`;
 
-    const sellerRes = await AIService.chatWithAgent(sellerAgentPrompt, claudeHistory as any, 'claude-haiku-4-5-20251001');
-    const sellerFormalMessage = (sellerRes.content[0] as any).text;
+    const sellerRes = await AIService.chatWithAgent(sellerAgentPrompt, claudeHistory, 'claude-haiku-4-5-20251001');
+    const sellerFormalMessage = (sellerRes.content[0] as { text: string }).text;
 
     await prisma.message.create({
       data: { conversationId: conversation.id, sender: 'SELLER_AGENT', content: sellerFormalMessage }
@@ -117,7 +117,7 @@ RULES:
       [{ role: 'user', content: `Send your opening offer of $${openingOffer} for the ${listing.title}.` }],
       'claude-haiku-4-5-20251001'
     );
-    const openingMessage = (openingRes.content[0] as any).text;
+    const openingMessage = (openingRes.content[0] as { text: string }).text;
 
     // Track whether we have already escalated to maxPrice as a final offer
     let madeMaxOffer = false;
@@ -156,7 +156,7 @@ RULES:
       let result: NegotiationResult;
       try {
         result = await NegotiationService.runNegotiationRound(buyerId, listingId, messageToSend);
-      } catch (err) {
+      } catch {
         // Retry once
         try {
           result = await NegotiationService.runNegotiationRound(buyerId, listingId, messageToSend);
@@ -214,10 +214,10 @@ async function generateNextOffer(
     orderBy: { createdAt: 'asc' }
   });
 
-  const claudeHistory = history
+  const claudeHistory: Array<{ role: 'user' | 'assistant'; content: string }> = history
     .filter(m => m.sender === 'BUYER_AGENT' || m.sender === 'SELLER_AGENT')
     .map(m => ({
-      role: m.sender === 'SELLER_AGENT' ? 'assistant' : 'user',
+      role: (m.sender === 'SELLER_AGENT' ? 'assistant' : 'user') as 'user' | 'assistant',
       content: m.content
     }));
 
@@ -231,8 +231,8 @@ RULES:
 
   claudeHistory.push({ role: 'user', content: 'Send your next negotiation message to the seller.' });
 
-  const res = await AIService.chatWithAgent(prompt, claudeHistory as any, 'claude-haiku-4-5-20251001');
-  const message = (res.content[0] as any).text as string;
+  const res = await AIService.chatWithAgent(prompt, claudeHistory, 'claude-haiku-4-5-20251001');
+  const message = (res.content[0] as { text: string }).text;
 
   // Hard cap: if the generated message contains any price above maxPrice, the agent has
   // gone rogue. Replace with a walk-away message — do not trust the LLM output here.

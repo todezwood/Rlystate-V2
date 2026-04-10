@@ -56,7 +56,7 @@ export const searchListings = async (req: Request, res: Response) => {
 
     const userId = req.user!.id;
 
-    const results = await prisma.$queryRawUnsafe<any[]>(
+    const results = await prisma.$queryRawUnsafe<Record<string, unknown>[]>(
       `SELECT id, title, description, "imageUrl", "imageUrls", "askingPrice", "floorPrice", condition, city, status, "sellerId",
               1 - ("embeddingVector" <=> $1::vector) AS similarity
        FROM "Listing"
