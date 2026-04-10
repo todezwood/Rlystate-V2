@@ -31,7 +31,7 @@ export const BuyingPage = () => {
   const fetchConversations = () => {
     api('/api/chat/mine')
       .then(res => res.json())
-      .then(data => { setConversations(data); setLoading(false); })
+      .then(data => { setConversations(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => setLoading(false));
   };
 

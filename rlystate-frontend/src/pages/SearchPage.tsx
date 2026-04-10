@@ -55,7 +55,7 @@ export const SearchPage = () => {
   useEffect(() => {
     api('/api/listings')
       .then(res => res.json())
-      .then(data => { setListings(data); setLoadingFeed(false); })
+      .then(data => { setListings(Array.isArray(data) ? data : []); setLoadingFeed(false); })
       .catch(() => setLoadingFeed(false));
   }, []);
 

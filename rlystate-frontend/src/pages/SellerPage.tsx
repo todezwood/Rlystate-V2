@@ -38,7 +38,7 @@ export const SellerPage = () => {
     api('/api/listings/me')
       .then(res => res.json())
       .then(data => {
-        setMyListings(data);
+        setMyListings(Array.isArray(data) ? data : []);
         setInventoryLoading(false);
       })
       .catch(() => setInventoryLoading(false));

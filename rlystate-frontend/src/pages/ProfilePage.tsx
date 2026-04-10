@@ -19,7 +19,7 @@ export const ProfilePage = () => {
   useEffect(() => {
     api('/api/profile/deals')
       .then(res => res.json())
-      .then(data => { setDeals(data); setLoading(false); })
+      .then(data => { setDeals(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
 
