@@ -58,6 +58,55 @@ Return your response strictly as a JSON object matching this structure:
   },
 
   /**
+   * Classifies an item into a standardized product category for embedding enrichment.
+   * Called at listing publish time and backfill. Uses Haiku for speed.
+   */
+  async getCategoryTag(title: string, description: string): Promise<string> {
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 60,
+      messages: [{
+        role: 'user',
+        content: `Classify this item into a product category and subcategory.
+Item: ${title}
+Description: ${description}
+
+Respond with ONLY a short category string like "Home & Kitchen > Trash Cans" or "Electronics > Computer Monitors" or "Sports & Outdoors > Bicycles".
+No explanation. No punctuation other than the >.`,
+      }],
+    });
+    const block = response.content.find(b => b.type === 'text');
+    return block && block.type === 'text' ? block.text.trim() : '';
+  },
+
+  /**
+   * Used by the Buyer Search Agent to interpret a reference photo.
+   * Extracts visual attributes for embedding — NOT pricing or appraisal.
+   * Runs on Claude Haiku 4.5 for speed and cost.
+   */
+  async describeReferencePhoto(base64Image: string, userQuery: string): Promise<string> {
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 200,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: 'image/jpeg', data: base64Image },
+          },
+          {
+            type: 'text',
+            text: `The user is looking for: "${userQuery}"\nDescribe this reference photo in terms useful for finding similar items.\nRespond with ONLY a comma-separated list of visual attributes: material, color, finish, shape, size category, style, and product type.\nNo introduction, no explanation, no sentences.`,
+          },
+        ],
+      }],
+    });
+    const block = response.content.find(b => b.type === 'text');
+    return block && block.type === 'text' ? block.text.trim() : '';
+  },
+
+  /**
    * Used by the Negotiation Agents (Seller Agent & Buyer Agent)
    * Runs on Claude Haiku 4.5 for blazing speed and low cost.
    */
