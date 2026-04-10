@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { AIService } from '../services/ai.service';
 import { StorageService } from '../services/storage.service';
+import { EmbeddingService } from '../services/embedding.service';
 
 export const uploadDirect = async (req: Request, res: Response) => {
   try {
@@ -14,7 +15,7 @@ export const uploadDirect = async (req: Request, res: Response) => {
     const buffer = Buffer.from(stripped, 'base64');
     const { publicUrl } = await StorageService.uploadFile(buffer, fileName, contentType);
     res.json({ publicUrl });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Direct Upload Error:", error);
     res.status(500).json({ error: "Failed to upload file" });
   }
@@ -29,7 +30,7 @@ export const getUploadUrl = async (req: Request, res: Response) => {
     }
     const result = await StorageService.generateUploadUrl(fileName, contentType);
     res.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("GCS Upload URL Error:", error);
     res.status(500).json({ error: "Failed to generate upload URL" });
   }
@@ -81,16 +82,17 @@ export const evaluateAndDraft = async (req: Request, res: Response) => {
     try {
       const cleaned = aiText.replace(/```json\n?/, '').replace(/```/, '');
       draft = JSON.parse(cleaned);
-    } catch(e) {
+    } catch(_e) {
       console.error("Failed to parse strictly as JSON:", aiText);
        res.status(500).json({ error: "AI returned invalid format", raw: aiText });
        return;
     }
 
     res.json(draft);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Evaluation Error:", error);
-    res.status(500).json({ error: error.message || "Failed to evaluate listing" });
+    const message = error instanceof Error ? error.message : "Failed to evaluate listing";
+    res.status(500).json({ error: message });
   }
 };
 
@@ -110,6 +112,21 @@ export const publishListing = async (req: Request, res: Response) => {
         status: "ACTIVE"
       }
     });
+
+    // Embed the listing text for semantic search (non-blocking)
+    // Category tag is fetched first to enrich the embedding with product category signal
+    AIService.getCategoryTag(listing.title, listing.description)
+      .then(categoryTag => EmbeddingService.embed(EmbeddingService.listingText(listing, categoryTag)))
+      .then(vector => {
+        const vectorStr = `[${vector.join(',')}]`;
+        return prisma.$executeRawUnsafe(
+          `UPDATE "Listing" SET "embeddingVector" = $1::vector WHERE id = $2`,
+          vectorStr,
+          listing.id
+        );
+      })
+      .catch((_err: unknown) => console.error('[embed] Failed to embed listing'));
+
     res.json(listing);
   } catch (error) {
     console.error("Publishing Error:", error);
@@ -124,7 +141,10 @@ export const getListings = async (req: Request, res: Response) => {
       where: { status: "ACTIVE" },
       orderBy: { createdAt: 'desc' }
     });
-    res.json(listings);
+    // Tag each listing so the frontend can disable negotiate buttons on the user's own items
+    const userId = req.user!.id;
+    const tagged = listings.map(l => ({ ...l, isOwn: l.sellerId === userId }));
+    res.json(tagged);
   } catch(error) {
      res.status(500).json({ error: "DB Fetch Failure" });
   }

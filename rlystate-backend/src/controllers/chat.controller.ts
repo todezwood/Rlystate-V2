@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { AIService } from '../services/ai.service';
+import { NegotiationService } from '../services/negotiation.service';
 
 export const negotiate = async (req: Request, res: Response) => {
   try {
@@ -10,104 +10,45 @@ export const negotiate = async (req: Request, res: Response) => {
 
     const listing = await prisma.listing.findUnique({ where: { id: listingId } });
     if (!listing) {
-      res.status(404).json({ error: "Listing not found" });
+      res.status(404).json({ error: 'Listing not found' });
       return;
     }
 
+    // Duplicate negotiation guard: block manual negotiate if an active autonomous one exists
+    const existingAuto = await prisma.conversation.findFirst({
+      where: { listingId, buyerId, autonomyMode: 'autonomous', status: 'active' }
+    });
+    if (existingAuto) {
+      res.status(409).json({
+        error: 'You already have an active AI negotiation on this item.',
+        conversationId: existingAuto.id
+      });
+      return;
+    }
+
+    // Find or create a manual conversation
     let conversation = await prisma.conversation.findFirst({
-      where: { listingId, buyerId }
+      where: { listingId, buyerId, autonomyMode: 'manual', status: 'active' }
     });
 
     if (!conversation) {
       conversation = await prisma.conversation.create({
-        data: { listingId, buyerId, sellerId: listing.sellerId }
+        data: { listingId, buyerId, sellerId: listing.sellerId, autonomyMode: 'manual' }
       });
     }
 
-    await prisma.message.create({
-      data: { conversationId: conversation.id, sender: "HUMAN_BUYER", content: userMessage }
-    });
-
-    // --- AGENT 1: BUYER AGENT ---
-    const buyerAgentPrompt = `You are the Buyer Agent. Your human client just said: "${userMessage}".
-Formulate a strictly professional negotiation attempt or response to deliver to the Seller Agent based strictly on this intent. Do not add conversational fluff.`;
-
-    let buyerFormalMessage = "";
-    try {
-      const buyerRes = await AIService.chatWithAgent(buyerAgentPrompt, [], "claude-haiku-4-5-20251001");
-      buyerFormalMessage = (buyerRes.content[0] as any).text;
-    } catch(err) {
-      buyerFormalMessage = userMessage; // fallback if Haiku throttles
-    }
-
-    await prisma.message.create({
-      data: { conversationId: conversation.id, sender: "BUYER_AGENT", content: buyerFormalMessage }
-    });
-
-    // --- AGENT 2: SELLER AGENT ---
-    // Build context window
-    const history = await prisma.message.findMany({
-      where: { conversationId: conversation.id },
-      orderBy: { createdAt: 'asc' }
-    });
-
-    const claudeHistory = history
-      .filter(m => m.sender === "BUYER_AGENT" || m.sender === "SELLER_AGENT")
-      .map(m => ({
-        role: m.sender === "SELLER_AGENT" ? "assistant" : "user",
-        content: m.content
-      }));
-
-    const sellerAgentPrompt = `You are the Seller Agent for an item titled "${listing.title}".
-The public asking price is $${listing.askingPrice}.
-Your SECRET Floor Price is $${listing.floorPrice}.
-CRITICAL RULE: Never reveal the Floor Price directly!
-If the buyer offers at or above the Floor Price, you must enthusiastically accept.
-If below, counter-offer strictly between the offer and the Asking Price, or hold firm.
-You must output a professional, brief negotiation message.
-If you accept an offer, end your message EXACTLY with the phrase: "DEAL ACCEPTED AT $[AMOUNT]." (e.g. "DEAL ACCEPTED AT $450.")`;
-
-    const sellerRes = await AIService.chatWithAgent(sellerAgentPrompt, claudeHistory as any, "claude-haiku-4-5-20251001");
-    const sellerFormalMessage = (sellerRes.content[0] as any).text;
-
-    await prisma.message.create({
-      data: { conversationId: conversation.id, sender: "SELLER_AGENT", content: sellerFormalMessage }
-    });
-
-    // Tool simulation lock-in
-    let depositReady = false;
-    if (sellerFormalMessage.includes("DEAL ACCEPTED")) {
-      depositReady = true;
-
-      const agreedPriceMatch = sellerFormalMessage.match(/DEAL ACCEPTED AT \$?([0-9,.]+)/i);
-      let agreedPrice: number | null = null;
-      if (agreedPriceMatch) {
-        agreedPrice = parseFloat(agreedPriceMatch[1].replace(/,/g, ''));
-      } else {
-        console.warn('[chat] Could not parse agreed price from seller message, falling back to asking price. Message:', sellerFormalMessage);
-      }
-
-      if (listing.status !== "DEPOSIT_HELD") {
-        await prisma.listing.update({ 
-           where: { id: listingId }, 
-           data: { 
-             status: "DEPOSIT_HELD",
-             agreedPrice: agreedPrice || listing.askingPrice 
-           } 
-        });
-      }
-    }
+    const result = await NegotiationService.runNegotiationRound(buyerId, listingId, userMessage);
 
     res.json({
-       humanMessage: userMessage,
-       buyerAgentMessage: buyerFormalMessage,
-       sellerAgentMessage: sellerFormalMessage,
-       depositReady
+      humanMessage: userMessage,
+      buyerAgentMessage: result.buyerAgentMessage,
+      sellerAgentMessage: result.sellerAgentMessage,
+      depositReady: result.depositReady
     });
 
-  } catch (error) {
-    console.error("Negotiation Error:", error);
-    res.status(500).json({ error: "Negotiation loop failed" });
+  } catch (_error: unknown) {
+    console.error('Negotiation Error:', _error);
+    res.status(500).json({ error: 'Negotiation loop failed' });
   }
 };
 
@@ -131,6 +72,8 @@ export const getMyConversations = async (req: Request, res: Response) => {
 
     const result = conversations.map(c => ({
       conversationId: c.id,
+      autonomyMode: c.autonomyMode,
+      status: c.status,
       listing: c.listing,
       lastMessage: c.messages[0]
         ? { content: c.messages[0].content, sender: c.messages[0].sender, createdAt: c.messages[0].createdAt }
@@ -139,8 +82,8 @@ export const getMyConversations = async (req: Request, res: Response) => {
 
     res.json(result);
   } catch (error) {
-    console.error("GetMyConversations Error:", error);
-    res.status(500).json({ error: "Failed to fetch conversations" });
+    console.error('GetMyConversations Error:', error);
+    res.status(500).json({ error: 'Failed to fetch conversations' });
   }
 };
 
@@ -150,11 +93,12 @@ export const getHistory = async (req: Request, res: Response) => {
     const buyerId = req.user!.id;
 
     const conversation = await prisma.conversation.findFirst({
-      where: { listingId, buyerId }
+      where: { listingId, buyerId },
+      orderBy: { createdAt: 'desc' }
     });
     if (!conversation) {
-       res.json([]);
-       return;
+      res.json([]);
+      return;
     }
 
     const messages = await prisma.message.findMany({
@@ -162,7 +106,80 @@ export const getHistory = async (req: Request, res: Response) => {
       orderBy: { createdAt: 'asc' }
     });
     res.json(messages);
+  } catch (_error: unknown) {
+    res.status(500).json({ error: 'Failed to fetch history' });
+  }
+};
+
+export const declineDeal = async (req: Request, res: Response) => {
+  try {
+    const { listingId } = req.params;
+    const buyerId = req.user!.id;
+
+    // Block decline if Lock in Deal was already clicked (Transaction row exists)
+    const existingTransaction = await prisma.transaction.findFirst({
+      where: { listingId, buyerId }
+    });
+    if (existingTransaction) {
+      res.status(409).json({ error: 'This deal has already been locked in and cannot be declined.' });
+      return;
+    }
+
+    const conversation = await prisma.conversation.findFirst({
+      where: { listingId, buyerId, status: 'completed' }
+    });
+    if (!conversation) {
+      res.status(404).json({ error: 'No completed deal found for this listing.' });
+      return;
+    }
+
+    // Atomic: conversation → walked_away first so any running auto-negotiate loop exits on its next round,
+    // then listing → ACTIVE. agreedPrice is intentionally preserved as historical record.
+    await prisma.$transaction([
+      prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { status: 'walked_away' }
+      }),
+      prisma.listing.updateMany({
+        where: { id: listingId, status: 'DEPOSIT_HELD' },
+        data: { status: 'ACTIVE' }
+      })
+    ]);
+
+    res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch history" });
+    console.error('[decline-deal] Error:', error);
+    res.status(500).json({ error: 'Failed to decline deal.' });
+  }
+};
+
+export const getConversationInfo = async (req: Request, res: Response) => {
+  try {
+    const { listingId } = req.params;
+    const buyerId = req.user!.id;
+
+    const conversation = await prisma.conversation.findFirst({
+      where: { listingId, buyerId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        listing: {
+          select: { id: true, title: true, askingPrice: true, agreedPrice: true, status: true, imageUrl: true, imageUrls: true }
+        }
+      }
+    });
+
+    if (!conversation) {
+      res.status(404).json({ error: 'Conversation not found' });
+      return;
+    }
+
+    res.json({
+      conversationId: conversation.id,
+      autonomyMode: conversation.autonomyMode,
+      status: conversation.status,
+      listing: conversation.listing
+    });
+  } catch (_error: unknown) {
+    res.status(500).json({ error: 'Failed to fetch conversation info' });
   }
 };
