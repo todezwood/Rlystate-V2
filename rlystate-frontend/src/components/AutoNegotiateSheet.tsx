@@ -35,7 +35,12 @@ export const AutoNegotiateSheet: React.FC<AutoNegotiateSheetProps> = ({ listing,
         setError(data.error || 'Failed to start negotiation');
         return;
       }
-      navigate('/buying');
+      if (!data.conversationId) {
+        setError('Could not start negotiation. Please try again.');
+        return;
+      }
+      onClose();
+      navigate(`/interact/${data.conversationId}`);
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {

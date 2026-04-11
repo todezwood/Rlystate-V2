@@ -25,6 +25,8 @@ export const InteractPage = () => {
   const [declining, setDeclining] = useState(false);
   const [declineError, setDeclineError] = useState<string | null>(null);
   const [confirmingDecline, setConfirmingDecline] = useState(false);
+  const [messageQueue, setMessageQueue] = useState<Message[]>([]);
+  const hasLoadedInitial = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -34,8 +36,23 @@ export const InteractPage = () => {
   const fetchHistory = () => {
     api(`/api/chat/${id}/history`)
       .then(res => res.json())
-      .then(data => {
-        setMessages(data);
+      .then((data: Message[]) => {
+        if (!hasLoadedInitial.current) {
+          setMessages(data);
+          hasLoadedInitial.current = true;
+        } else {
+          setMessages(prev => {
+            const displayedIds = new Set(prev.map(m => m.id));
+            setMessageQueue(queue => {
+              const queuedIds = new Set(queue.map(m => m.id));
+              const incoming = data.filter(
+                m => m.id && !displayedIds.has(m.id) && !queuedIds.has(m.id)
+              );
+              return incoming.length > 0 ? [...queue, ...incoming] : queue;
+            });
+            return prev;
+          });
+        }
         if (data.some((m: Message) => m.content.includes('DEAL ACCEPTED'))) {
           setDepositReady(true);
         }
@@ -59,26 +76,35 @@ export const InteractPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Poll every 15s for autonomous conversations or active ones
+  // Poll every 3s for autonomous conversations. Pause while the reveal queue is draining.
   useEffect(() => {
-    if (isAuto) {
-      const controller = new AbortController();
+    if (isAuto && messageQueue.length === 0) {
       intervalRef.current = setInterval(() => {
         fetchHistory();
         fetchInfo();
-      }, 15000);
+      }, 3000);
       return () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
-        controller.abort();
       };
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, isAuto]);
+  }, [id, isAuto, messageQueue.length === 0]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Reveal queued messages one at a time, 3 seconds apart
+  useEffect(() => {
+    if (messageQueue.length === 0) return;
+    const timer = setTimeout(() => {
+      const [next, ...rest] = messageQueue;
+      setMessages(prev => [...prev, next]);
+      setMessageQueue(rest);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [messageQueue]);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -213,7 +239,7 @@ export const InteractPage = () => {
             </span>
           </div>
         ))}
-        {loading && (
+        {(loading || messageQueue.length > 0) && (
           <div style={{ color: 'var(--text-secondary)', alignSelf: 'flex-start', fontSize: '0.8rem' }}>Agents are negotiating...</div>
         )}
         <div ref={messagesEndRef} />
