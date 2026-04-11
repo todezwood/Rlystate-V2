@@ -251,7 +251,7 @@ export const InteractPage = () => {
           <h4 style={{ color: 'var(--positive)', marginBottom: 6 }}>Deal locked in</h4>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Payment confirmed. Check your profile for details.</p>
         </div>
-      ) : depositReady ? (
+      ) : (depositReady && messageQueue.length === 0) ? (
         <div style={{ marginTop: 'auto', padding: 16, backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid var(--positive)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
           <h4 style={{ color: 'var(--positive)', marginBottom: 8 }}>Deal reached!</h4>
           <button
@@ -291,7 +291,7 @@ export const InteractPage = () => {
             <div style={{ color: 'var(--negative)', fontSize: '0.8rem', marginTop: 8 }}>{depositError || declineError}</div>
           )}
         </div>
-      ) : isWalkedAway ? (
+      ) : (isWalkedAway && messageQueue.length === 0) ? (
         <div style={{ marginTop: 'auto', padding: 14, backgroundColor: 'var(--bg-secondary)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: 12 }}>
             The agent wasn't able to reach a deal within your budget.
