@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 
 interface Message {
@@ -11,6 +11,8 @@ interface Message {
 export const InteractPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const forceManual = searchParams.get('mode') === 'manual';
   const [messages, setMessages] = useState<Message[]>([]);
   const [convInfo, setConvInfo] = useState<{ autonomyMode: string; status: string } | null>(null);
   const [input, setInput] = useState('');
@@ -24,7 +26,7 @@ export const InteractPage = () => {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const isAuto = convInfo?.autonomyMode === 'autonomous';
+  const isAuto = !forceManual && convInfo?.autonomyMode === 'autonomous';
   const isWalkedAway = convInfo?.status === 'walked_away';
 
   const fetchHistory = () => {

@@ -58,10 +58,10 @@ Formulate a strictly professional negotiation attempt or response to deliver to 
 The public asking price is $${listing.askingPrice}.
 Your SECRET Floor Price is $${listing.floorPrice}.
 CRITICAL RULE: Never reveal the Floor Price directly!
-If the buyer offers at or above the Floor Price, you must enthusiastically accept.
+If the buyer offers at or above the Floor Price, you must accept.
 If below, counter-offer strictly between the offer and the Asking Price, or hold firm.
-You must output a professional, brief negotiation message.
-If you accept an offer, end your message EXACTLY with the phrase: "DEAL ACCEPTED AT $[AMOUNT]." (e.g. "DEAL ACCEPTED AT $450.")`;
+You must output a professional, brief negotiation message of two sentences maximum.
+MANDATORY: If you are accepting the deal, your response MUST end with this exact line on its own: DEAL ACCEPTED AT $[AMOUNT]. — replace [AMOUNT] with the agreed number. No exceptions. Example: DEAL ACCEPTED AT $450.`;
 
     const sellerRes = await AIService.chatWithAgent(sellerAgentPrompt, claudeHistory, 'claude-haiku-4-5-20251001');
     const sellerFormalMessage = (sellerRes.content[0] as { text: string }).text;
@@ -73,9 +73,16 @@ If you accept an offer, end your message EXACTLY with the phrase: "DEAL ACCEPTED
     let depositReady = false;
     let agreedPrice: number | undefined;
 
-    if (sellerFormalMessage.includes('DEAL ACCEPTED')) {
+    const dealAccepted =
+      sellerFormalMessage.includes('DEAL ACCEPTED') ||
+      /\bthe (item|deal|price|offer) is (yours|accepted|agreed)\b/i.test(sellerFormalMessage) ||
+      /\bwe have a deal\b/i.test(sellerFormalMessage) ||
+      /\bI('ll| will) (accept|take) (that|your offer|the offer)\b/i.test(sellerFormalMessage);
+
+    if (dealAccepted) {
       depositReady = true;
-      const match = sellerFormalMessage.match(/DEAL ACCEPTED AT \$?([0-9,.]+)/i);
+      const match = sellerFormalMessage.match(/DEAL ACCEPTED AT \$?([0-9,.]+)/i)
+        ?? sellerFormalMessage.match(/\$([0-9,.]+)/);
       if (match) {
         agreedPrice = parseFloat(match[1].replace(/,/g, ''));
       }

@@ -209,7 +209,7 @@ export const SearchPage = () => {
                 ) : (
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
-                      onClick={() => navigate(`/interact/${listing.id}`)}
+                      onClick={() => navigate(`/interact/${listing.id}?mode=manual`)}
                       style={{ flex: 1, padding: '10px', borderRadius: 10, background: 'transparent', border: '1.5px solid rgba(255,255,255,0.15)', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem' }}
                     >
                       Negotiate
