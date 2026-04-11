@@ -32,7 +32,7 @@ Formulate a strictly professional negotiation attempt or response to deliver to 
 
     let buyerFormalMessage = '';
     try {
-      const buyerRes = await AIService.chatWithAgent(buyerAgentPrompt, [], 'claude-haiku-4-5-20251001');
+      const buyerRes = await AIService.chatWithAgent(buyerAgentPrompt, [{ role: 'user', content: userMessage }], 'claude-haiku-4-5-20251001');
       buyerFormalMessage = (buyerRes.content[0] as { text: string }).text;
     } catch {
       buyerFormalMessage = userMessage;
