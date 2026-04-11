@@ -18,6 +18,7 @@ export const InteractPage = () => {
   const [alreadyLocked, setAlreadyLocked] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [depositReady, setDepositReady] = useState(false);
   const [depositLoading, setDepositLoading] = useState(false);
   const [depositError, setDepositError] = useState<string | null>(null);
@@ -82,6 +83,7 @@ export const InteractPage = () => {
   const sendMessage = async () => {
     if (!input.trim()) return;
     setLoading(true);
+    setSendError(null);
 
     const optimisticHuman = { id: 'temp1', sender: 'HUMAN_BUYER', content: input };
     setMessages(prev => [...prev, optimisticHuman]);
@@ -98,6 +100,7 @@ export const InteractPage = () => {
       if (!res.ok) {
         setMessages(prev => prev.filter(m => m.id !== 'temp1'));
         setInput(currentInput);
+        setSendError(data.error || 'Failed to send message. Please try again.');
         return;
       }
 
@@ -112,6 +115,7 @@ export const InteractPage = () => {
     } catch {
       setMessages(prev => prev.filter(m => m.id !== 'temp1'));
       setInput(currentInput);
+      setSendError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -277,7 +281,11 @@ export const InteractPage = () => {
           </p>
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto' }}>
+          {sendError && (
+            <div style={{ color: 'var(--negative)', fontSize: '0.8rem', padding: '6px 10px', backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)' }}>{sendError}</div>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -288,6 +296,7 @@ export const InteractPage = () => {
           <button onClick={sendMessage} disabled={loading} style={{ backgroundColor: 'var(--accent)', color: 'white', padding: '0 20px', borderRadius: 'var(--radius-lg)', border: 'none', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer' }}>
             Send
           </button>
+          </div>
         </div>
       )}
     </div>
