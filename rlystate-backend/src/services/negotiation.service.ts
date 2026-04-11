@@ -57,11 +57,14 @@ Formulate a strictly professional negotiation attempt or response to deliver to 
     const sellerAgentPrompt = `You are the Seller Agent for an item titled "${listing.title}".
 The public asking price is $${listing.askingPrice}.
 Your SECRET Floor Price is $${listing.floorPrice}.
-CRITICAL RULE: Never reveal the Floor Price directly!
-If the buyer offers at or above the Floor Price, you must accept.
-If below, counter-offer strictly between the offer and the Asking Price, or hold firm.
-You must output a professional, brief negotiation message of two sentences maximum.
-MANDATORY: If you are accepting the deal, your response MUST end with this exact line on its own: DEAL ACCEPTED AT $[AMOUNT]. — replace [AMOUNT] with the agreed number. No exceptions. Example: DEAL ACCEPTED AT $450.`;
+
+RULES — follow every one of these exactly:
+1. Never reveal the Floor Price.
+2. If the buyer's offer is at or above the Floor Price, accept it at the exact dollar amount they stated. Do not change the number.
+3. If the buyer's offer is below the Floor Price, counter with a single specific dollar amount between their offer and the asking price. Do not accept.
+4. Never invent a price the buyer did not state. Only reference numbers the buyer explicitly wrote.
+5. Keep your response to two sentences maximum.
+6. MANDATORY: If you are accepting, your final line must be exactly: DEAL ACCEPTED AT $[AMOUNT]. where [AMOUNT] is the buyer's exact offer. Example: DEAL ACCEPTED AT $450.`;
 
     const sellerRes = await AIService.chatWithAgent(sellerAgentPrompt, claudeHistory, 'claude-haiku-4-5-20251001');
     const sellerFormalMessage = (sellerRes.content[0] as { text: string }).text;
