@@ -120,7 +120,10 @@ export const InteractPage = () => {
     setDepositError(null);
     try {
       const lastSeller = [...messages].reverse().find(m => m.sender === 'SELLER_AGENT');
-      const match = lastSeller?.content.match(/\$([0-9,]+)/);
+      // Prefer the amount on the DEAL ACCEPTED line; fall back to first dollar sign
+      const match =
+        lastSeller?.content.match(/DEAL ACCEPTED AT \$?([0-9,]+)/i) ??
+        lastSeller?.content.match(/\$([0-9,]+)/);
       const amount = match ? parseFloat(match[1].replace(',', '')) : 0;
 
       if (!match || amount <= 0) {
