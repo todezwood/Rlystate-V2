@@ -14,16 +14,27 @@ export const negotiate = async (req: Request, res: Response) => {
       return;
     }
 
-    // Duplicate negotiation guard: block manual negotiate if an active autonomous one exists
+    // If a stale autonomous conversation is active (loop died without closing it),
+    // close it so the buyer can proceed with manual negotiation.
     const existingAuto = await prisma.conversation.findFirst({
       where: { listingId, buyerId, autonomyMode: 'autonomous', status: 'active' }
     });
     if (existingAuto) {
-      res.status(409).json({
-        error: 'You already have an active AI negotiation on this item.',
-        conversationId: existingAuto.id
+      const AGE_LIMIT_MS = 10 * 60 * 1000; // 10 minutes
+      const ageMs = Date.now() - new Date(existingAuto.createdAt).getTime();
+      if (ageMs < AGE_LIMIT_MS) {
+        // Loop is likely still running — block to prevent collision
+        res.status(409).json({
+          error: 'You already have an active AI negotiation on this item.',
+          conversationId: existingAuto.id
+        });
+        return;
+      }
+      // Loop is stale — close it and allow manual negotiation
+      await prisma.conversation.update({
+        where: { id: existingAuto.id },
+        data: { status: 'walked_away' }
       });
-      return;
     }
 
     // Find or create a manual conversation
