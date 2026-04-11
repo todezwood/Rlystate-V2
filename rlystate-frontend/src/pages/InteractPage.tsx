@@ -15,6 +15,7 @@ export const InteractPage = () => {
   const forceManual = searchParams.get('mode') === 'manual';
   const [messages, setMessages] = useState<Message[]>([]);
   const [convInfo, setConvInfo] = useState<{ autonomyMode: string; status: string } | null>(null);
+  const [alreadyLocked, setAlreadyLocked] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [depositReady, setDepositReady] = useState(false);
@@ -46,6 +47,7 @@ export const InteractPage = () => {
       .then(data => {
         if (data.autonomyMode) setConvInfo({ autonomyMode: data.autonomyMode, status: data.status });
         if (data.status === 'completed') setDepositReady(true);
+        if (data.transactionExists) setAlreadyLocked(true);
       })
       .catch(() => {});
   };
@@ -138,6 +140,7 @@ export const InteractPage = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Deposit failed');
+      setAlreadyLocked(true);
       navigate('/profile');
     } catch (err: unknown) {
       setDepositError(err instanceof Error ? err.message : 'Deposit failed');
@@ -213,7 +216,12 @@ export const InteractPage = () => {
       </div>
 
       {/* Bottom area */}
-      {depositReady ? (
+      {alreadyLocked ? (
+        <div style={{ marginTop: 'auto', padding: 16, backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid var(--positive)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+          <h4 style={{ color: 'var(--positive)', marginBottom: 6 }}>Deal locked in</h4>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Payment confirmed. Check your profile for details.</p>
+        </div>
+      ) : depositReady ? (
         <div style={{ marginTop: 'auto', padding: 16, backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid var(--positive)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
           <h4 style={{ color: 'var(--positive)', marginBottom: 8 }}>Deal reached!</h4>
           <button
