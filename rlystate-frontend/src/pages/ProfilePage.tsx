@@ -3,12 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 
 interface DealItem {
-  id: string;
-  role: 'Bought' | 'Sold';
-  listingTitle: string;
+  listingId: string;
+  role: 'bought' | 'sold';
+  title: string;
   imageUrl: string;
   finalPrice: number;
-  completedAt: string;
+  date: string;
 }
 
 export const ProfilePage = () => {
@@ -82,7 +82,7 @@ export const ProfilePage = () => {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
           {deals.map(deal => (
-            <div key={deal.id} style={{
+            <div key={deal.listingId} style={{
               display: 'flex',
               gap: 12,
               padding: 12,
@@ -103,7 +103,7 @@ export const ProfilePage = () => {
               }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {deal.listingTitle}
+                  {deal.title}
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <span style={{
@@ -111,15 +111,15 @@ export const ProfilePage = () => {
                     fontWeight: 700,
                     padding: '2px 6px',
                     borderRadius: 5,
-                    background: deal.role === 'Bought' ? 'rgba(94,106,210,0.2)' : 'rgba(16,185,129,0.15)',
-                    color: deal.role === 'Bought' ? 'var(--accent)' : 'var(--positive)',
-                    border: deal.role === 'Bought' ? '1px solid rgba(94,106,210,0.3)' : '1px solid rgba(16,185,129,0.3)',
+                    background: deal.role === 'bought' ? 'rgba(94,106,210,0.2)' : 'rgba(16,185,129,0.15)',
+                    color: deal.role === 'bought' ? 'var(--accent)' : 'var(--positive)',
+                    border: deal.role === 'bought' ? '1px solid rgba(94,106,210,0.3)' : '1px solid rgba(16,185,129,0.3)',
                     letterSpacing: '0.5px',
                   }}>
                     {deal.role.toUpperCase()}
                   </span>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                    {formatDate(deal.completedAt)}
+                    {formatDate(deal.date)}
                   </span>
                 </div>
               </div>
