@@ -40,7 +40,7 @@ export const AutoNegotiateSheet: React.FC<AutoNegotiateSheetProps> = ({ listing,
         return;
       }
       onClose();
-      navigate(`/interact/${data.conversationId}`);
+      navigate(`/interact/${listing.id}`);
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
