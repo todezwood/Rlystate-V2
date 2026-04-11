@@ -27,6 +27,9 @@ export const SellerPage = () => {
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [draft, setDraft] = useState<ListingDraft | null>(null);
+  const [editDescription, setEditDescription] = useState('');
+  const [editAskingPrice, setEditAskingPrice] = useState('');
+  const [editFloorPrice, setEditFloorPrice] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   // My Inventory state
@@ -160,6 +163,9 @@ export const SellerPage = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to evaluate listing");
       setDraft(data);
+      setEditDescription(data.rationale);
+      setEditAskingPrice(String(Math.round(data.suggestedHighPrice)));
+      setEditFloorPrice(String(Math.round(data.suggestedLowPrice)));
     } catch(err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to evaluate listing');
     } finally {
@@ -169,16 +175,27 @@ export const SellerPage = () => {
 
   const publishListing = async () => {
     if (!draft) return;
+    const asking = parseInt(editAskingPrice, 10);
+    const floor = parseInt(editFloorPrice, 10);
+    if (isNaN(asking) || asking <= 0 || isNaN(floor) || floor <= 0) {
+      setError('Please enter valid prices.');
+      return;
+    }
+    if (floor > asking) {
+      setError('Auto-accept floor cannot be higher than the public asking price.');
+      return;
+    }
     setIsLoading(true);
+    setError(null);
     try {
       const res = await api('/api/listings/publish', {
         method: 'POST',
         body: JSON.stringify({
           title,
-          description: draft.rationale,
+          description: editDescription,
           imageUrls: uploadedImageUrls,
-          askingPrice: draft.suggestedHighPrice,
-          floorPrice: draft.suggestedLowPrice
+          askingPrice: asking,
+          floorPrice: floor
         })
       });
       if (!res.ok) throw new Error("Failed to publish");
@@ -231,21 +248,61 @@ export const SellerPage = () => {
 
       {draft && (
         <div style={{ backgroundColor: 'var(--bg-tertiary)', padding: '20px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,255,255,0.05)' }}>
-          <h3 style={{ marginBottom: '16px', color: 'var(--positive)' }}>Draft Generated!</h3>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-primary)', marginBottom: '16px', lineHeight: 1.5 }}>"{draft.rationale}"</p>
-          <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: 'var(--radius-sm)', marginBottom: '24px' }}>
-             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Invisible Negotiation Parameters</p>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Suggested Public Ask:</span>
-              <span style={{ fontWeight: 'bold' }}>${draft.suggestedHighPrice}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <h3 style={{ color: 'var(--positive)', margin: 0 }}>Review Your Listing</h3>
+            <button
+              onClick={() => { setDraft(null); setError(null); }}
+              style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.85rem' }}
+            >
+              Start over
+            </button>
+          </div>
+
+          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            style={{ width: '100%', padding: '10px 12px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', marginBottom: '14px', fontFamily: 'inherit' }}
+          />
+
+          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Description</label>
+          <textarea
+            value={editDescription}
+            onChange={e => setEditDescription(e.target.value)}
+            style={{ width: '100%', minHeight: '90px', padding: '10px 12px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', resize: 'vertical', marginBottom: '14px', fontFamily: 'inherit', fontSize: '0.875rem', lineHeight: 1.5 }}
+          />
+
+          <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: 'var(--radius-sm)', marginBottom: '20px' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Negotiation Parameters</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)', gap: '12px' }}>
+              <span style={{ color: 'var(--text-secondary)', flexShrink: 0 }}>Public Ask ($)</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={editAskingPrice}
+                onChange={e => setEditAskingPrice(e.target.value)}
+                style={{ width: '100px', padding: '6px 10px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.15)', color: 'white', fontWeight: 700, textAlign: 'right', fontFamily: 'inherit' }}
+              />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>AI Auto-Accept Floor:</span>
-              <span style={{ color: 'var(--negative)', fontWeight: 'bold' }}>${draft.suggestedLowPrice}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+              <span style={{ color: 'var(--text-secondary)', flexShrink: 0 }}>Auto-Accept Floor ($)</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={editFloorPrice}
+                onChange={e => setEditFloorPrice(e.target.value)}
+                style={{ width: '100px', padding: '6px 10px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.15)', color: '#EF4444', fontWeight: 700, textAlign: 'right', fontFamily: 'inherit' }}
+              />
             </div>
           </div>
-          <button onClick={publishListing} disabled={isLoading} style={{ width: '100%', backgroundColor: isLoading ? 'grey' : 'white', color: 'black', padding: '14px', borderRadius: 'var(--radius-sm)', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
-            {isLoading ? "Publishing..." : "Publish to Storefront"}
+
+          {error && <div style={{ color: 'var(--negative)', fontSize: '0.875rem', marginBottom: '12px' }}>{error}</div>}
+
+          <button onClick={publishListing} disabled={isLoading} style={{ width: '100%', backgroundColor: isLoading ? 'grey' : 'white', color: 'black', padding: '14px', borderRadius: 'var(--radius-sm)', border: 'none', fontWeight: 600, cursor: isLoading ? 'not-allowed' : 'pointer' }}>
+            {isLoading ? 'Publishing...' : 'Publish to Storefront'}
           </button>
         </div>
       )}
