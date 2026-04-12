@@ -26,6 +26,29 @@ function formatSlot(iso: string) {
   });
 }
 
+type DealStatus = 'negotiating' | 'deal_agreed' | 'deposit_paid' | 'pickup_scheduled' | 'declined';
+
+function getDealStatus(
+  convInfo: { status: string } | null,
+  depositReady: boolean,
+  alreadyLocked: boolean,
+  coordPhase: CoordPhase
+): DealStatus {
+  if (convInfo?.status === 'walked_away') return 'declined';
+  if (coordPhase === 'done' || coordPhase === 'already_scheduled') return 'pickup_scheduled';
+  if (alreadyLocked) return 'deposit_paid';
+  if (depositReady) return 'deal_agreed';
+  return 'negotiating';
+}
+
+const DEAL_STATUS_DISPLAY: Record<DealStatus, { label: string; bg: string; color: string; border: string }> = {
+  negotiating:      { label: 'Negotiating',     bg: 'rgba(94,106,210,0.15)',   color: 'var(--accent)',        border: 'rgba(94,106,210,0.3)' },
+  deal_agreed:      { label: 'Deal Agreed',      bg: 'rgba(245,158,11,0.15)',  color: '#F59E0B',              border: 'rgba(245,158,11,0.3)' },
+  deposit_paid:     { label: 'Deposit Paid',     bg: 'rgba(16,185,129,0.15)', color: 'var(--positive)',      border: 'rgba(16,185,129,0.3)' },
+  pickup_scheduled: { label: 'Pickup Scheduled', bg: 'rgba(16,185,129,0.15)', color: 'var(--positive)',      border: 'rgba(16,185,129,0.3)' },
+  declined:         { label: 'Declined',         bg: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', border: 'rgba(255,255,255,0.1)' },
+};
+
 export const InteractPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -238,12 +261,23 @@ export const InteractPage = () => {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
-          <h1 className="page-title" style={{ fontSize: '1.4rem', marginBottom: 2 }}>Negotiation Room</h1>
-          {isAuto && (
-            <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: 'rgba(94,106,210,0.2)', color: 'var(--accent)', border: '1px solid rgba(94,106,210,0.3)', letterSpacing: '0.5px' }}>
-              AI AGENT
-            </span>
-          )}
+          <h1 className="page-title" style={{ fontSize: '1.4rem', marginBottom: 4 }}>Negotiation Room</h1>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {isAuto && (
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: 'rgba(94,106,210,0.2)', color: 'var(--accent)', border: '1px solid rgba(94,106,210,0.3)', letterSpacing: '0.5px' }}>
+                AI AGENT
+              </span>
+            )}
+            {(() => {
+              const s = getDealStatus(convInfo, depositReady, alreadyLocked, coordPhase);
+              const d = DEAL_STATUS_DISPLAY[s];
+              return (
+                <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: d.bg, color: d.color, border: `1px solid ${d.border}`, letterSpacing: '0.5px' }}>
+                  {d.label}
+                </span>
+              );
+            })()}
+          </div>
         </div>
         <button
           onClick={() => navigate('/buying')}
@@ -255,17 +289,25 @@ export const InteractPage = () => {
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 20 }}>
-        {messages.filter(m => m.sender !== 'BUYER_AGENT').map((m, i) => (
+        {messages.filter(m => isAuto ? m.sender !== 'HUMAN_BUYER' : m.sender !== 'BUYER_AGENT').map((m, i) => (
           <div key={m.id ?? i} style={{
-            alignSelf: m.sender === 'HUMAN_BUYER' ? 'flex-end' : 'flex-start',
-            backgroundColor: m.sender === 'HUMAN_BUYER' ? 'var(--accent)' : 'var(--bg-tertiary)',
+            alignSelf: (m.sender === 'HUMAN_BUYER' || m.sender === 'BUYER_AGENT') ? 'flex-end' : 'flex-start',
+            backgroundColor: m.sender === 'HUMAN_BUYER'
+              ? 'var(--accent)'
+              : m.sender === 'BUYER_AGENT'
+              ? '#4B55B8'
+              : 'var(--bg-tertiary)',
             padding: '10px 14px',
             borderRadius: 'var(--radius-md)',
-            border: m.sender === 'SELLER_AGENT' ? '1px solid rgba(255,255,255,0.1)' : 'none',
+            border: m.sender === 'BUYER_AGENT'
+              ? '1px solid rgba(94,106,210,0.5)'
+              : m.sender === 'SELLER_AGENT'
+              ? '1px solid rgba(255,255,255,0.1)'
+              : 'none',
             maxWidth: '82%'
           }}>
-            <span style={{ display: 'block', fontSize: '0.6rem', textTransform: 'uppercase', color: m.sender === 'HUMAN_BUYER' ? 'rgba(255,255,255,0.6)' : 'var(--text-secondary)', marginBottom: 3 }}>
-              {m.sender === 'SELLER_AGENT' ? 'Seller Agent' : 'You'}
+            <span style={{ display: 'block', fontSize: '0.6rem', textTransform: 'uppercase', color: (m.sender === 'HUMAN_BUYER' || m.sender === 'BUYER_AGENT') ? 'rgba(255,255,255,0.6)' : 'var(--text-secondary)', marginBottom: 3 }}>
+              {m.sender === 'SELLER_AGENT' ? 'Seller Agent' : m.sender === 'BUYER_AGENT' ? 'Your Agent' : 'You'}
             </span>
             <span style={{ fontSize: '0.875rem', lineHeight: 1.45 }}>
               {m.content.replace(/DEAL ACCEPTED[^.]*\./gi, '').trim() || m.content}

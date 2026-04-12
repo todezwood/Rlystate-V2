@@ -373,13 +373,17 @@ export const SellerPage = () => {
                         </div>
                       )}
 
-                      <div style={{
-                        fontSize: '0.7rem',
-                        color: isDepositHeld ? 'var(--positive)' : listing.status === 'ACTIVE' ? 'var(--positive)' : 'var(--accent)',
-                        marginTop: '4px',
-                        textTransform: 'uppercase',
-                      }}>
-                        {isDepositHeld ? 'Deal Locked' : listing.status}
+                      <div style={{ marginTop: '4px' }}>
+                        {isDepositHeld && (
+                          <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: 'rgba(16,185,129,0.15)', color: 'var(--positive)', border: '1px solid rgba(16,185,129,0.3)', letterSpacing: '0.5px' }}>
+                            Deal Agreed
+                          </span>
+                        )}
+                        {listing.status === 'SOLD' && (
+                          <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: 'rgba(16,185,129,0.1)', color: 'rgba(16,185,129,0.6)', border: '1px solid rgba(16,185,129,0.2)', letterSpacing: '0.5px' }}>
+                            Complete
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -131,13 +131,18 @@ export const BuyingPage = () => {
                     </span>
                   )}
                   {isDepositReady && (
-                    <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'rgba(16,185,129,0.15)', color: 'var(--positive)', border: '1px solid rgba(16,185,129,0.3)' }}>
-                      DEAL LOCKED
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'rgba(16,185,129,0.15)', color: 'var(--positive)', border: '1px solid rgba(16,185,129,0.3)', letterSpacing: '0.5px' }}>
+                      Deal Agreed
+                    </span>
+                  )}
+                  {!isDepositReady && !isWalkedAway && (
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'rgba(94,106,210,0.15)', color: 'var(--accent)', border: '1px solid rgba(94,106,210,0.3)', letterSpacing: '0.5px' }}>
+                      Negotiating
                     </span>
                   )}
                   {isWalkedAway && (
-                    <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}>
-                      ENDED
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 5, background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', border: '1px solid rgba(255,255,255,0.1)', letterSpacing: '0.5px' }}>
+                      Declined
                     </span>
                   )}
                 </div>
