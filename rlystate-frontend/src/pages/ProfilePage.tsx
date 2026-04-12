@@ -158,7 +158,7 @@ export const ProfilePage = () => {
           {avatarUrl ? (
             <img
               src={avatarUrl}
-              alt={fullName}
+              alt=""
               style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
             />
           ) : (

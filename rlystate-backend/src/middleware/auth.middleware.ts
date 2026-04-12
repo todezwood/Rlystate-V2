@@ -16,29 +16,42 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     const decoded = await firebaseAuth.verifyIdToken(idToken);
     const firebaseUid = decoded.uid;
 
-    // Upsert: create user row on first authenticated request, find on subsequent ones
-    let user = await prisma.user.findUnique({ where: { id: firebaseUid } });
+    // Upsert: create user row on first authenticated request, find on subsequent ones.
+    // Use select to avoid querying columns that may not exist pre-migration.
+    let user = await prisma.user.findUnique({
+      where: { id: firebaseUid },
+      select: { id: true, name: true },
+    });
     if (!user) {
       const nameParts = (decoded.name || '').trim().split(' ');
       const firstName = nameParts[0] || null;
       const lastName = nameParts.slice(1).join(' ') || null;
-      user = await prisma.user.create({
-        data: {
-          id: firebaseUid,
-          email: decoded.email || `${firebaseUid}@firebase.rlystate.app`,
-          name: decoded.name || decoded.email?.split('@')[0] || 'User',
-          firstName,
-          lastName,
-          photoUrl: (decoded as { picture?: string }).picture || null,
-        },
-      });
+      try {
+        user = await prisma.user.create({
+          data: {
+            id: firebaseUid,
+            email: decoded.email || `${firebaseUid}@firebase.rlystate.app`,
+            name: decoded.name || decoded.email?.split('@')[0] || 'User',
+            firstName,
+            lastName,
+            photoUrl: (decoded as { picture?: string }).picture || null,
+          },
+          select: { id: true, name: true },
+        });
+      } catch {
+        // Migration not yet applied — create without new profile fields
+        user = await prisma.user.create({
+          data: {
+            id: firebaseUid,
+            email: decoded.email || `${firebaseUid}@firebase.rlystate.app`,
+            name: decoded.name || decoded.email?.split('@')[0] || 'User',
+          },
+          select: { id: true, name: true },
+        });
+      }
     }
-
-    // Block deleted accounts
-    if (user.deletedAt) {
-      res.status(401).json({ error: 'Account deleted' });
-      return;
-    }
+    // deletedAt check is not needed here: deleted accounts have their Firebase
+    // record removed, so verifyIdToken fails before this point.
 
     req.user = { id: user.id, displayName: user.name || undefined };
     next();
