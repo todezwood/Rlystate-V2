@@ -186,7 +186,7 @@ export const getConversationInfo = async (req: Request, res: Response) => {
 
     const transaction = await prisma.transaction.findFirst({
       where: { listingId, buyerId },
-      select: { id: true, amount: true }
+      select: { id: true, amount: true, pickupScheduledAt: true, calendarEventId: true }
     });
 
     res.json({
@@ -195,7 +195,9 @@ export const getConversationInfo = async (req: Request, res: Response) => {
       status: conversation.status,
       listing: conversation.listing,
       transactionExists: !!transaction,
-      transactionAmount: transaction?.amount ?? null
+      transactionAmount: transaction?.amount ?? null,
+      pickupScheduledAt: transaction?.pickupScheduledAt ?? null,
+      calendarEventId: transaction?.calendarEventId ?? null,
     });
   } catch {
     res.status(500).json({ error: 'Failed to fetch conversation info' });

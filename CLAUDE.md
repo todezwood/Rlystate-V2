@@ -95,6 +95,10 @@ The seller agent operates with these tools only. It does not act outside these b
 - Geo-focused launch in one city first. NYC is the likely candidate.
 - Free to list. We make money only when the seller does.
 
+## Deployment Permissions
+
+Claude is authorized to run `git add`, `git commit`, `git push`, and `firebase deploy` commands as part of normal work. Always commit only the files relevant to the current change. Never use `git add -A` or `git add .`. Always confirm with Jarmar before pushing or deploying and wait for explicit approval before proceeding.
+
 ## Open Questions (As Of April 2026)
 
 - Buyer hook: why does a buyer open this app instead of FB Marketplace? Not solved yet.

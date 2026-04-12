@@ -7,6 +7,8 @@ import listingRoutes from './routes/listing.routes';
 import chatRoutes from './routes/chat.routes';
 import transactionRoutes from './routes/transaction.routes';
 import buyerRoutes, { profileRouter } from './routes/buyer.routes';
+import authRoutes from './routes/auth.routes';
+import coordinationRoutes from './routes/coordination.routes';
 
 dotenv.config();
 
@@ -26,6 +28,8 @@ app.use('/api/chat', authMiddleware, chatRoutes);
 app.use('/api/transactions', authMiddleware, transactionRoutes);
 app.use('/api/buyer', authMiddleware, buyerRoutes);
 app.use('/api/profile', authMiddleware, profileRouter);
+app.use('/api/auth', authMiddleware, authRoutes);
+app.use('/api/coordination', authMiddleware, coordinationRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'rlystate-backend' });

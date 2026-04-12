@@ -74,12 +74,15 @@ model Message {
 }
 
 model Transaction {
-  id        String   @id @default(uuid())
-  listingId String
-  buyerId   String
-  amount    Float
-  status    String   // "DEPOSIT_HELD"
-  createdAt DateTime @default(now())
+  id                String    @id @default(uuid())
+  listingId         String
+  buyerId           String
+  amount            Float
+  status            String    // "DEPOSIT_HELD", "PICKUP_SCHEDULED"
+  pickupScheduledAt DateTime?
+  calendarEventId   String?
+  pickupTimezone    String?
+  createdAt         DateTime  @default(now())
 
   listing   Listing   @relation(fields: [listingId], references: [id])
   buyer     User      @relation(fields: [buyerId], references: [id])
