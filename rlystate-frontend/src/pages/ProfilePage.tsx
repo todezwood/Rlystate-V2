@@ -123,7 +123,7 @@ export const ProfilePage = () => {
   };
 
   return (
-    <div className="page-content" style={{ overflowY: 'auto', paddingBottom: 40 }}>
+    <div className="page-content" style={{ overflowY: 'auto' }}>
 
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
