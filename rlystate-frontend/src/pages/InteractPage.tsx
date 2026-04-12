@@ -8,6 +8,24 @@ interface Message {
   content: string;
 }
 
+interface PickupSlot {
+  start: string;
+  end: string;
+}
+
+type CoordPhase = 'idle' | 'loading' | 'slots' | 'booking' | 'done' | 'no_calendar' | 'already_scheduled';
+
+function formatSlot(iso: string) {
+  return new Date(iso).toLocaleString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
 export const InteractPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -25,6 +43,9 @@ export const InteractPage = () => {
   const [declining, setDeclining] = useState(false);
   const [declineError, setDeclineError] = useState<string | null>(null);
   const [confirmingDecline, setConfirmingDecline] = useState(false);
+  const [coordPhase, setCoordPhase] = useState<CoordPhase>('idle');
+  const [slots, setSlots] = useState<PickupSlot[]>([]);
+  const [calendarLink, setCalendarLink] = useState<string | null>(null);
   const [messageQueue, setMessageQueue] = useState<Message[]>([]);
   const hasLoadedInitial = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -66,6 +87,7 @@ export const InteractPage = () => {
         if (data.autonomyMode) setConvInfo({ autonomyMode: data.autonomyMode, status: data.status });
         if (data.status === 'completed') setDepositReady(true);
         if (data.transactionExists) setAlreadyLocked(true);
+        if (data.pickupScheduledAt) setCoordPhase('already_scheduled');
       })
       .catch(() => {});
   };
@@ -171,7 +193,18 @@ export const InteractPage = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Deposit failed');
       setAlreadyLocked(true);
-      navigate('/profile');
+
+      // Transition into coordination phase
+      setCoordPhase('loading');
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const slotsRes = await api(`/api/coordination/${id}/slots?timezone=${encodeURIComponent(tz)}`);
+      const slotsData = await slotsRes.json();
+      if (!slotsRes.ok || slotsData.noCalendar || slotsData.error || !Array.isArray(slotsData) || slotsData.length === 0) {
+        setCoordPhase('no_calendar');
+      } else {
+        setSlots(slotsData);
+        setCoordPhase('slots');
+      }
     } catch (err: unknown) {
       setDepositError(err instanceof Error ? err.message : 'Deposit failed');
     } finally {
@@ -247,9 +280,99 @@ export const InteractPage = () => {
 
       {/* Bottom area */}
       {alreadyLocked ? (
-        <div style={{ marginTop: 'auto', padding: 16, backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid var(--positive)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-          <h4 style={{ color: 'var(--positive)', marginBottom: 6 }}>Deal locked in</h4>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Payment confirmed. Check your profile for details.</p>
+        <div style={{ marginTop: 'auto', padding: 16, backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid var(--positive)', borderRadius: 'var(--radius-md)' }}>
+          {coordPhase === 'loading' && (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', textAlign: 'center' }}>Finding pickup windows...</p>
+          )}
+          {coordPhase === 'slots' && (
+            <>
+              <h4 style={{ color: 'var(--positive)', marginBottom: 4, fontSize: '0.95rem' }}>Choose a pickup time</h4>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: 12 }}>Calendar invites will go to both of you.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {slots.map((slot, i) => (
+                  <button
+                    key={i}
+                    onClick={async () => {
+                      setCoordPhase('booking');
+                      const res = await api(`/api/coordination/${id}/confirm`, {
+                        method: 'POST',
+                        body: JSON.stringify({ start: slot.start, end: slot.end }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok || data.error) {
+                        setCoordPhase('no_calendar');
+                      } else {
+                        setCalendarLink(data.htmlLink ?? null);
+                        setCoordPhase('done');
+                      }
+                    }}
+                    style={{
+                      background: 'rgba(16,185,129,0.12)',
+                      border: '1px solid rgba(16,185,129,0.35)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--positive)',
+                      fontWeight: 600,
+                      fontSize: '0.82rem',
+                      padding: '10px 12px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    {formatSlot(slot.start)} &rarr; {formatSlot(slot.end)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {coordPhase === 'booking' && (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', textAlign: 'center' }}>Scheduling pickup...</p>
+          )}
+          {coordPhase === 'done' && (
+            <>
+              <h4 style={{ color: 'var(--positive)', marginBottom: 6, fontSize: '0.95rem' }}>Pickup scheduled!</h4>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 12 }}>Calendar invites sent to both of you.</p>
+              {calendarLink && (
+                <a
+                  href={calendarLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'block', fontSize: '0.8rem', color: 'var(--accent)', marginBottom: 12 }}
+                >
+                  View calendar event
+                </a>
+              )}
+              <button
+                onClick={() => navigate('/profile')}
+                style={{ width: '100%', background: 'var(--positive)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', padding: '12px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                Go to Profile
+              </button>
+            </>
+          )}
+          {(coordPhase === 'no_calendar' || coordPhase === 'idle') && (
+            <>
+              <h4 style={{ color: 'var(--positive)', marginBottom: 6, fontSize: '0.95rem' }}>Deal locked in</h4>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 12 }}>Coordinate pickup directly with the seller.</p>
+              <button
+                onClick={() => navigate('/profile')}
+                style={{ width: '100%', background: 'none', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-secondary)', borderRadius: 'var(--radius-sm)', padding: '11px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                Go to Profile
+              </button>
+            </>
+          )}
+          {coordPhase === 'already_scheduled' && (
+            <>
+              <h4 style={{ color: 'var(--positive)', marginBottom: 6, fontSize: '0.95rem' }}>Pickup already scheduled</h4>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 12 }}>Check your email for the calendar invite.</p>
+              <button
+                onClick={() => navigate('/profile')}
+                style={{ width: '100%', background: 'none', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-secondary)', borderRadius: 'var(--radius-sm)', padding: '11px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+              >
+                Go to Profile
+              </button>
+            </>
+          )}
         </div>
       ) : (depositReady && messageQueue.length === 0) ? (
         <div style={{ marginTop: 'auto', padding: 16, backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid var(--positive)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>

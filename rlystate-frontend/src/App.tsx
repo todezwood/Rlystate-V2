@@ -1,7 +1,8 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom';
 import { Search, ShoppingBag, Store, User } from 'lucide-react';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { LandingPage } from './pages/LandingPage';
 import { SearchPage } from './pages/SearchPage';
 import { BuyingPage } from './pages/BuyingPage';
 import { SellerPage } from './pages/SellerPage';
@@ -9,22 +10,45 @@ import { ProfilePage } from './pages/ProfilePage';
 import { InteractPage } from './pages/InteractPage';
 import './index.css';
 
-function App() {
-  return (
-    <AuthProvider>
-    <BrowserRouter>
-      <div className="app-container">
-        <Routes>
-          <Route path="/" element={<SearchPage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/buying" element={<BuyingPage />} />
-          <Route path="/seller" element={<SellerPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/interact/:id" element={<InteractPage />} />
-        </Routes>
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { userId, loading } = useAuth();
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'var(--bg-primary)',
+        color: 'white',
+      }}>
+        Loading...
+      </div>
+    );
+  }
+  if (!userId) return <Navigate to="/" replace />;
+  return <>{children}</>;
+};
 
+function AppLayout() {
+  const location = useLocation();
+  const isLanding = location.pathname === '/';
+
+  return (
+    <div className="app-container">
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/feed" element={<ProtectedRoute><SearchPage /></ProtectedRoute>} />
+        <Route path="/search" element={<ProtectedRoute><SearchPage /></ProtectedRoute>} />
+        <Route path="/buying" element={<ProtectedRoute><BuyingPage /></ProtectedRoute>} />
+        <Route path="/seller" element={<ProtectedRoute><SellerPage /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/interact/:id" element={<ProtectedRoute><InteractPage /></ProtectedRoute>} />
+      </Routes>
+
+      {!isLanding && (
         <nav className="bottom-nav">
-          <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>
+          <NavLink to="/feed" end className={({ isActive }) => (isActive ? 'active' : '')}>
             <Search size={24} />
             <span>Search</span>
           </NavLink>
@@ -41,8 +65,17 @@ function App() {
             <span>Profile</span>
           </NavLink>
         </nav>
-      </div>
-    </BrowserRouter>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <AppLayout />
+      </BrowserRouter>
     </AuthProvider>
   );
 }
