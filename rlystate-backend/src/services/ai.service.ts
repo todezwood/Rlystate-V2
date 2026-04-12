@@ -16,7 +16,7 @@ Use your knowledge of secondhand market values (eBay, Facebook Marketplace, simi
 
 Return ONLY a JSON object with this structure:
 {
-  "suggestedTitle": "<short, specific item title based on what you identify — brand, model, and type if visible>",
+  "suggestedTitle": "<always required: specific item title you generate from the photos — include brand, model, and type where visible>",
   "suggestedHighPrice": <number>,
   "suggestedLowPrice": <number>,
   "rationale": "<1-2 sentence market pricing note that honestly describes the item condition and basis for the price range>",
@@ -53,7 +53,12 @@ Rules for tips:
       contentBlocks.push({ type: "image", source: { type: "base64", media_type: mediaType, data: pureBase64 } });
     }
 
-    contentBlocks.push({ type: "text", text: `Title: ${title || 'Unknown'}\nDescription: ${description || 'Unknown'}\n\n${prompt}` });
+    const sellerContext = [
+      title ? `Seller title: ${title}` : null,
+      description ? `Seller description: ${description}` : null,
+    ].filter(Boolean).join('\n');
+
+    contentBlocks.push({ type: "text", text: sellerContext ? `${sellerContext}\n\n${prompt}` : prompt });
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
