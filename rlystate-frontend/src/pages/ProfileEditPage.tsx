@@ -16,17 +16,22 @@ interface ProfileData {
 export const ProfileEditPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { photoURL } = useAuth();
+  const { photoURL, displayName } = useAuth();
 
   // Initialize fields from route state immediately; fall back to API fetch
   const passedProfile: ProfileData | null = (location.state as { profile?: ProfileData })?.profile ?? null;
+
+  // Split Firebase displayName as a fallback when DB values are null
+  const firebaseParts = (displayName || '').trim().split(' ');
+  const firebaseFirstName = firebaseParts[0] || '';
+  const firebaseLastName = firebaseParts.slice(1).join(' ') || '';
 
   const [loading, setLoading] = useState(!passedProfile);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [firstName, setFirstName] = useState(passedProfile?.firstName || '');
-  const [lastName, setLastName] = useState(passedProfile?.lastName || '');
+  const [firstName, setFirstName] = useState(passedProfile?.firstName || firebaseFirstName);
+  const [lastName, setLastName] = useState(passedProfile?.lastName || firebaseLastName);
   const [phone, setPhone] = useState(passedProfile?.phone || '');
   const [zipCode, setZipCode] = useState(passedProfile?.zipCode || '');
   const [email, setEmail] = useState(passedProfile?.email || '');
@@ -37,8 +42,8 @@ export const ProfileEditPage = () => {
     api('/api/profile')
       .then(res => res.json())
       .then((data: ProfileData) => {
-        setFirstName(data.firstName || '');
-        setLastName(data.lastName || '');
+        setFirstName(data.firstName || firebaseFirstName);
+        setLastName(data.lastName || firebaseLastName);
         setPhone(data.phone || '');
         setZipCode(data.zipCode || '');
         setEmail(data.email || '');
