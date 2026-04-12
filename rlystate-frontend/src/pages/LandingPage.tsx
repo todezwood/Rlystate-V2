@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { signInWithRedirect, signInWithPopup, getRedirectResult, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithRedirect, getRedirectResult, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
 googleProvider.addScope('https://www.googleapis.com/auth/calendar.freebusy');
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 const GoogleLogo: React.FC = () => (
   <svg width="18" height="18" viewBox="0 0 24 24">
@@ -95,30 +96,7 @@ export const LandingPage: React.FC = () => {
   const handleSignIn = () => {
     setSignInError(null);
     setSignInProcessing(true);
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      signInWithRedirect(auth, googleProvider);
-    } else {
-      // Use .then() (not await) so the callback fires immediately if the promise resolves.
-      // On Firebase Hosting with COOP headers, the popup promise may hang — navigation is
-      // driven by onAuthStateChanged in AuthContext, so we do not depend on this resolving.
-      signInWithPopup(auth, googleProvider)
-        .then(result => {
-          const credential = GoogleAuthProvider.credentialFromResult(result);
-          if (credential?.accessToken) {
-            api('/api/auth/connect-calendar', {
-              method: 'POST',
-              body: JSON.stringify({ accessToken: credential.accessToken }),
-            }).catch(() => {});
-          }
-        })
-        .catch(() => {
-          setSignInError('Sign-in failed. Please try again.');
-        })
-        .finally(() => {
-          setSignInProcessing(false);
-        });
-    }
+    signInWithRedirect(auth, googleProvider);
   };
 
   if (userId) return <Navigate to="/feed" replace />;
