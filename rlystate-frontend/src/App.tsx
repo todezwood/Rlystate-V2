@@ -7,6 +7,7 @@ import { SearchPage } from './pages/SearchPage';
 import { BuyingPage } from './pages/BuyingPage';
 import { SellerPage } from './pages/SellerPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { ProfileEditPage } from './pages/ProfileEditPage';
 import { InteractPage } from './pages/InteractPage';
 import './index.css';
 
@@ -32,7 +33,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 function AppLayout() {
   const location = useLocation();
-  const isLanding = location.pathname === '/';
+  const hideNav = location.pathname === '/' || location.pathname === '/profile/edit' || location.pathname.startsWith('/interact/');
 
   return (
     <div className="app-container">
@@ -43,10 +44,11 @@ function AppLayout() {
         <Route path="/buying" element={<ProtectedRoute><BuyingPage /></ProtectedRoute>} />
         <Route path="/seller" element={<ProtectedRoute><SellerPage /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/profile/edit" element={<ProtectedRoute><ProfileEditPage /></ProtectedRoute>} />
         <Route path="/interact/:id" element={<ProtectedRoute><InteractPage /></ProtectedRoute>} />
       </Routes>
 
-      {!isLanding && (
+      {!hideNav && (
         <nav className="bottom-nav">
           <NavLink to="/feed" end className={({ isActive }) => (isActive ? 'active' : '')}>
             <Search size={24} />

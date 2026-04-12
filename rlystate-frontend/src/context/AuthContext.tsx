@@ -6,6 +6,8 @@ import { auth } from '../lib/firebase';
 interface AuthState {
   userId: string | null;
   displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
   loading: boolean;
   logout: () => void;
 }
@@ -13,6 +15,8 @@ interface AuthState {
 const AuthContext = createContext<AuthState>({
   userId: null,
   displayName: null,
+  email: null,
+  photoURL: null,
   loading: true,
   logout: () => {},
 });
@@ -38,6 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider value={{
       userId: firebaseUser?.uid ?? null,
       displayName: firebaseUser?.displayName || firebaseUser?.email?.split('@')[0] || null,
+      email: firebaseUser?.email ?? null,
+      photoURL: firebaseUser?.photoURL ?? null,
       loading,
       logout,
     }}>
