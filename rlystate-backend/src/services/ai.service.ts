@@ -12,7 +12,7 @@ export const AIService = {
   async evaluateListing(base64Images: string[], title?: string, description?: string) {
     const prompt = `You are a helpful pricing assistant for a secondhand marketplace. Review the photos and any seller context to identify the item and assess its condition honestly.
 
-CONTENT MODERATION (check first): If the photos or description indicate a prohibited item, do NOT generate a listing. Prohibited items include: firearms, weapons, ammunition, explosives, illegal drugs, controlled substances, adult or sexual content, sexual services, stolen property, counterfeit goods, or any item that cannot legally be sold by an individual. For prohibited items, return ONLY: { "refused": true, "reason": "<category>", "message": "<brief user-facing explanation of why this item cannot be listed>" }
+CONTENT MODERATION (check first): If the photos or description indicate a prohibited item, do NOT generate a listing. Prohibited items include: firearms, weapons, ammunition, explosives, illegal drugs, controlled substances, adult or sexual content, sexual services, stolen property, counterfeit goods, or any item that cannot legally be sold by an individual. For prohibited items, return ONLY: { "refused": true, "reason": "<category>", "message": "<one sentence, max 15 words, no legal disclaimers>" }
 
 If the item is allowed, use your knowledge of secondhand market values (eBay, Facebook Marketplace, similar platforms) to estimate a realistic resale price range.
 
