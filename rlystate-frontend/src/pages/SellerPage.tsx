@@ -191,6 +191,11 @@ export const SellerPage = () => {
       setError('Auto-accept floor cannot be higher than the public asking price.');
       return;
     }
+    const maxPrice = Math.round(draft.suggestedHighPrice * 1.25);
+    if (asking > maxPrice) {
+      setError(`Your asking price can't exceed $${maxPrice} (25% above our market estimate).`);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -201,10 +206,12 @@ export const SellerPage = () => {
           description: editDescription,
           imageUrls: uploadedImageUrls,
           askingPrice: asking,
-          floorPrice: floor
+          floorPrice: floor,
+          suggestedHighPrice: draft.suggestedHighPrice
         })
       });
-      if (!res.ok) throw new Error("Failed to publish");
+      const publishData = await res.json();
+      if (!res.ok) throw new Error(publishData.error || "Failed to publish");
 
       // Reset form and refresh inventory
       setDraft(null);
@@ -299,7 +306,10 @@ export const SellerPage = () => {
           <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: 'var(--radius-sm)', marginBottom: '20px' }}>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Negotiation Parameters</p>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)', gap: '12px' }}>
-              <span style={{ color: 'var(--text-secondary)', flexShrink: 0 }}>Public Ask ($)</span>
+              <div style={{ flexShrink: 0 }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Public Ask ($)</span>
+                <span style={{ display: 'block', fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', marginTop: '2px' }}>Max ${Math.round(draft.suggestedHighPrice * 1.25)}</span>
+              </div>
               <input
                 type="number"
                 min="1"

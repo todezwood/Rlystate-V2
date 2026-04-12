@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { AIService } from '../services/ai.service';
 import { StorageService } from '../services/storage.service';
 import { EmbeddingService } from '../services/embedding.service';
+import { checkImageSafety, checkProhibitedContent, checkPriceCeiling } from '../lib/moderation';
 
 export const uploadDirect = async (req: Request, res: Response) => {
   try {
@@ -68,6 +69,13 @@ export const evaluateAndDraft = async (req: Request, res: Response) => {
       base64Images.push(base64Image);
     }
 
+    // Layer 1: SafeSearch moderation before AI sees the photos
+    const safetyCheck = await checkImageSafety(base64Images);
+    if (safetyCheck.blocked) {
+      res.status(400).json({ error: safetyCheck.reason });
+      return;
+    }
+
     // Call Claude Vision
     const aiResponse = await AIService.evaluateListing(base64Images, title, description);
 
@@ -89,6 +97,19 @@ export const evaluateAndDraft = async (req: Request, res: Response) => {
        return;
     }
 
+    // Layer 2: Claude refused to generate a listing (prohibited item detected)
+    if (draft.refused) {
+      res.status(400).json({ error: draft.message || "This item cannot be listed on Rlystate." });
+      return;
+    }
+
+    // Layer 3: Keyword blocklist on AI-generated content
+    const contentCheck = checkProhibitedContent(draft.suggestedTitle || '', draft.rationale || '');
+    if (contentCheck.blocked) {
+      res.status(400).json({ error: contentCheck.reason });
+      return;
+    }
+
     res.json(draft);
   } catch (error: unknown) {
     console.error("Evaluation Error:", error);
@@ -99,7 +120,14 @@ export const evaluateAndDraft = async (req: Request, res: Response) => {
 
 export const publishListing = async (req: Request, res: Response) => {
   try {
-    const { title, description, imageUrls, askingPrice, floorPrice } = req.body;
+    const { title, description, imageUrls, askingPrice, floorPrice, suggestedHighPrice } = req.body;
+
+    // Layer 4: Price ceiling enforcement (25% above AI suggested high)
+    if (suggestedHighPrice && askingPrice > Math.round(suggestedHighPrice * 1.25)) {
+      const maxPrice = Math.round(suggestedHighPrice * 1.25);
+      res.status(400).json({ error: `Your asking price exceeds the maximum we allow for this item. Please set your price at $${maxPrice} or below.` });
+      return;
+    }
 
     const listing = await prisma.listing.create({
       data: {
