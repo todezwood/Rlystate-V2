@@ -28,7 +28,11 @@ export const NegotiationService = {
     });
 
     const buyerAgentPrompt = `You are the Buyer Agent. Your human client just said: "${userMessage}".
-Formulate a strictly professional negotiation attempt or response to deliver to the Seller Agent based strictly on this intent. Do not add conversational fluff.`;
+Formulate a strictly professional negotiation message to deliver to the Seller Agent based on this intent.
+RULES:
+- If the human's message contains a dollar amount, you MUST include that exact dollar amount in your response. Do not omit it or replace it with vague language.
+- Do not add conversational fluff or meta-commentary.
+- One to two sentences maximum.`;
 
     let buyerFormalMessage = '';
     try {
@@ -56,15 +60,16 @@ Formulate a strictly professional negotiation attempt or response to deliver to 
 
     const sellerAgentPrompt = `You are the Seller Agent for an item titled "${listing.title}".
 The public asking price is $${listing.askingPrice}.
-Your SECRET Floor Price is $${listing.floorPrice}.
+Your SECRET Floor Price is $${listing.floorPrice}. Never reveal this number.
 
-RULES — follow every one of these exactly:
-1. Never reveal the Floor Price.
-2. If the buyer's offer is at or above the Floor Price, accept it at the exact dollar amount they stated. Do not change the number.
-3. If the buyer's offer is below the Floor Price, counter with a single specific dollar amount between their offer and the asking price. Do not accept.
-4. Never invent a price the buyer did not state. Only reference numbers the buyer explicitly wrote.
-5. Keep your response to two sentences maximum.
-6. MANDATORY: If you are accepting, your final line must be exactly: DEAL ACCEPTED AT $[AMOUNT]. where [AMOUNT] is the buyer's exact offer. Example: DEAL ACCEPTED AT $450.`;
+RULES — follow every one strictly:
+1. Extract the buyer's stated dollar amount from their message.
+2. Compare it numerically to the Floor Price ($${listing.floorPrice}).
+   - If buyer's amount >= $${listing.floorPrice}: you MUST accept. Output one short sentence acknowledging the deal, then on the next line output exactly: DEAL ACCEPTED AT $[BUYER'S EXACT AMOUNT]
+   - If buyer's amount < $${listing.floorPrice}: counter with a single specific dollar amount between their offer and $${listing.askingPrice}. Do not accept.
+3. Never invent a price the buyer did not state.
+4. Two sentences maximum.
+5. ACCEPTANCE FORMAT (mandatory when accepting): end your response with a line that is exactly: DEAL ACCEPTED AT $[AMOUNT] where [AMOUNT] is the buyer's exact number. Example: DEAL ACCEPTED AT $24000`;
 
     const sellerRes = await AIService.chatWithAgent(sellerAgentPrompt, claudeHistory, 'claude-haiku-4-5-20251001');
     const sellerFormalMessage = (sellerRes.content[0] as { text: string }).text;
@@ -80,7 +85,10 @@ RULES — follow every one of these exactly:
       sellerFormalMessage.includes('DEAL ACCEPTED') ||
       /\bthe (item|deal|price|offer) is (yours|accepted|agreed)\b/i.test(sellerFormalMessage) ||
       /\bwe have a deal\b/i.test(sellerFormalMessage) ||
-      /\bI('ll| will) (accept|take) (that|your offer|the offer)\b/i.test(sellerFormalMessage);
+      /\bI('ll| will) (accept|take) (that|your offer|the offer)\b/i.test(sellerFormalMessage) ||
+      /\bI accept (that|your offer|the offer|this offer)\b/i.test(sellerFormalMessage) ||
+      /\b(that('s| is)|it('s| is)) a deal\b/i.test(sellerFormalMessage) ||
+      /\bsold( at)?\b.*\$[0-9]/i.test(sellerFormalMessage);
 
     if (dealAccepted) {
       depositReady = true;
