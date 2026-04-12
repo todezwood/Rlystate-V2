@@ -72,6 +72,7 @@ export const evaluateAndDraft = async (req: Request, res: Response) => {
     // Layer 1: SafeSearch moderation before AI sees the photos
     const safetyCheck = await checkImageSafety(base64Images);
     if (safetyCheck.blocked) {
+      console.log(JSON.stringify({ event: 'moderation_block', layer: 1, layerName: 'safesearch', category: safetyCheck.reason, userId: req.user!.id, timestamp: new Date().toISOString() }));
       res.status(400).json({ error: safetyCheck.reason });
       return;
     }
@@ -99,6 +100,7 @@ export const evaluateAndDraft = async (req: Request, res: Response) => {
 
     // Layer 2: Claude refused to generate a listing (prohibited item detected)
     if (draft.refused) {
+      console.log(JSON.stringify({ event: 'moderation_block', layer: 2, layerName: 'claude_refusal', category: draft.reason || 'unknown', userId: req.user!.id, timestamp: new Date().toISOString() }));
       res.status(400).json({ error: draft.message || "This item cannot be listed on Rlystate." });
       return;
     }
@@ -106,10 +108,12 @@ export const evaluateAndDraft = async (req: Request, res: Response) => {
     // Layer 3: Keyword blocklist on AI-generated content
     const contentCheck = checkProhibitedContent(draft.suggestedTitle || '', draft.rationale || '');
     if (contentCheck.blocked) {
+      console.log(JSON.stringify({ event: 'moderation_block', layer: 3, layerName: 'keyword_blocklist', category: contentCheck.reason, matchedText: `${draft.suggestedTitle}`, userId: req.user!.id, timestamp: new Date().toISOString() }));
       res.status(400).json({ error: contentCheck.reason });
       return;
     }
 
+    console.log(JSON.stringify({ event: 'moderation_pass', layers: '1-3 cleared', suggestedTitle: draft.suggestedTitle, userId: req.user!.id, timestamp: new Date().toISOString() }));
     res.json(draft);
   } catch (error: unknown) {
     console.error("Evaluation Error:", error);
@@ -129,6 +133,7 @@ export const publishListing = async (req: Request, res: Response) => {
     }
     const maxPrice = Math.round(suggestedHighPrice * 1.25);
     if (askingPrice > maxPrice) {
+      console.log(JSON.stringify({ event: 'moderation_block', layer: 4, layerName: 'price_ceiling', category: 'price_exceeded', askingPrice, maxPrice, suggestedHighPrice, userId: req.user!.id, timestamp: new Date().toISOString() }));
       res.status(400).json({ error: `Your asking price exceeds the maximum we allow for this item. Please set your price at $${maxPrice} or below.` });
       return;
     }
