@@ -18,43 +18,35 @@ export const ProfileEditPage = () => {
   const location = useLocation();
   const { photoURL } = useAuth();
 
-  const [loading, setLoading] = useState(true);
+  // Initialize fields from route state immediately; fall back to API fetch
+  const passedProfile: ProfileData | null = (location.state as { profile?: ProfileData })?.profile ?? null;
+
+  const [loading, setLoading] = useState(!passedProfile);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [zipCode, setZipCode] = useState('');
-  const [email, setEmail] = useState('');
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState(passedProfile?.firstName || '');
+  const [lastName, setLastName] = useState(passedProfile?.lastName || '');
+  const [phone, setPhone] = useState(passedProfile?.phone || '');
+  const [zipCode, setZipCode] = useState(passedProfile?.zipCode || '');
+  const [email, setEmail] = useState(passedProfile?.email || '');
+  const [photoUrl, setPhotoUrl] = useState<string | null>(passedProfile?.photoUrl ?? null);
 
   useEffect(() => {
-    // Use profile passed via route state if available, otherwise fetch
-    const passedProfile: ProfileData | null = location.state?.profile ?? null;
-    if (passedProfile) {
-      setFirstName(passedProfile.firstName || '');
-      setLastName(passedProfile.lastName || '');
-      setPhone(passedProfile.phone || '');
-      setZipCode(passedProfile.zipCode || '');
-      setEmail(passedProfile.email || '');
-      setPhotoUrl(passedProfile.photoUrl);
-      setLoading(false);
-    } else {
-      api('/api/profile')
-        .then(res => res.json())
-        .then((data: ProfileData) => {
-          setFirstName(data.firstName || '');
-          setLastName(data.lastName || '');
-          setPhone(data.phone || '');
-          setZipCode(data.zipCode || '');
-          setEmail(data.email || '');
-          setPhotoUrl(data.photoUrl);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
-    }
-  }, [location.state]);
+    if (passedProfile) return;
+    api('/api/profile')
+      .then(res => res.json())
+      .then((data: ProfileData) => {
+        setFirstName(data.firstName || '');
+        setLastName(data.lastName || '');
+        setPhone(data.phone || '');
+        setZipCode(data.zipCode || '');
+        setEmail(data.email || '');
+        setPhotoUrl(data.photoUrl);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     setError(null);
