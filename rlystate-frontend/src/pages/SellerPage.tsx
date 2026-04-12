@@ -129,8 +129,9 @@ export const SellerPage = () => {
                method: 'POST',
                body: JSON.stringify({ base64: img, fileName: `seller_upload_${idx}.jpg`, contentType: 'image/jpeg' })
              });
+             if (uploadRes.status === 401) throw new Error("Session expired. Please sign out and sign back in.");
              const uploadData = await uploadRes.json();
-             if (!uploadRes.ok) throw new Error("Local direct upload failed");
+             if (!uploadRes.ok) throw new Error(uploadData.error || "Upload failed. Please try again.");
              return uploadData.publicUrl;
           }
         
