@@ -10,16 +10,26 @@ export const AIService = {
    * Runs on Claude Sonnet 4.5 for high intelligence.
    */
   async evaluateListing(base64Images: string[], title?: string, description?: string) {
-    const prompt = `You are an expert appraiser for second-hand goods. First, use the multiple image angles and user context to identify the exact make/model and act as a strict condition-grader to identify wear-and-tear.
-    
-Next, tap into your extensive knowledge of secondary markets (such as eBay, Facebook Marketplace, or specialized forums) to recall typical depreciation curves for this specific item in this exact condition. Use this internal market data to estimate a realistic second-hand base price.
+    const prompt = `You are a helpful pricing assistant for a secondhand marketplace. Review the photos and any seller context to identify the item and assess its condition honestly.
 
-Return your response strictly as a JSON object matching this structure:
+Use your knowledge of secondhand market values (eBay, Facebook Marketplace, similar platforms) to estimate a realistic resale price range.
+
+Return ONLY a JSON object with this structure:
 {
   "suggestedHighPrice": <number>,
   "suggestedLowPrice": <number>,
-  "rationale": "<brief explanation>"
-}`;
+  "rationale": "<1-2 sentence market pricing note that honestly describes the item condition and basis for the price range>",
+  "tips": [
+    "<specific observation from the photo + one actionable fix to help the seller get a better price>"
+  ]
+}
+
+Rules for tips:
+- Return at most 2 tips.
+- Each tip must be grounded in something you actually observe in the photos, not generic advice.
+- If you observe no specific issues, return an empty array. Do not invent tips.
+- Write tips in an encouraging tone. Example: "We noticed the surface looks a bit dusty in the photos. A quick wipe-down before reshooting could make a real difference."
+- Do not include dollar estimates in tips.`;
 
     const contentBlocks: Anthropic.Messages.ContentBlockParam[] = [];
 
@@ -45,7 +55,7 @@ Return your response strictly as a JSON object matching this structure:
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 1000,
+      max_tokens: 1500,
       messages: [
         {
           role: "user",

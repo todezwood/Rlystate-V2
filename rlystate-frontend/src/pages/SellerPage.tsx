@@ -6,6 +6,7 @@ interface ListingDraft {
   suggestedHighPrice: number;
   suggestedLowPrice: number;
   rationale: string;
+  tips?: string[];
 }
 
 interface MyListing {
@@ -31,6 +32,7 @@ export const SellerPage = () => {
   const [editAskingPrice, setEditAskingPrice] = useState('');
   const [editFloorPrice, setEditFloorPrice] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [tipsDismissed, setTipsDismissed] = useState(false);
 
   // My Inventory state
   const [myListings, setMyListings] = useState<MyListing[]>([]);
@@ -163,6 +165,7 @@ export const SellerPage = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to evaluate listing");
       setDraft(data);
+      setTipsDismissed(false);
       setEditDescription(data.rationale);
       setEditAskingPrice(String(Math.round(data.suggestedHighPrice)));
       setEditFloorPrice(String(Math.round(data.suggestedLowPrice)));
@@ -272,6 +275,23 @@ export const SellerPage = () => {
             onChange={e => setEditDescription(e.target.value)}
             style={{ width: '100%', minHeight: '90px', padding: '10px 12px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', resize: 'vertical', marginBottom: '14px', fontFamily: 'inherit', fontSize: '0.875rem', lineHeight: 1.5 }}
           />
+
+          {!tipsDismissed && Array.isArray(draft.tips) && draft.tips.length > 0 && (
+            <div style={{ background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.3)', padding: '14px 16px', borderRadius: 'var(--radius-sm)', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Quick wins before you list</span>
+                <button
+                  onClick={() => setTipsDismissed(true)}
+                  style={{ background: 'none', border: 'none', color: 'rgba(217,119,6,0.6)', cursor: 'pointer', fontSize: '0.8rem', padding: '0 4px' }}
+                >
+                  Got it
+                </button>
+              </div>
+              {draft.tips.slice(0, 2).filter(tip => typeof tip === 'string').map((tip, i) => (
+                <p key={i} style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.8)', margin: i > 0 ? '8px 0 0' : '0', lineHeight: 1.5 }}>{tip}</p>
+              ))}
+            </div>
+          )}
 
           <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: 'var(--radius-sm)', marginBottom: '20px' }}>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}>Negotiation Parameters</p>

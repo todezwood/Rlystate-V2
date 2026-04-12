@@ -77,10 +77,11 @@ export const evaluateAndDraft = async (req: Request, res: Response) => {
       if (block.type === 'text') { aiText += block.text; }
     }
 
-    // Safely parse JSON even if Claude hallucinates Markdown blocks
+    // Safely parse JSON even if Claude wraps output in Markdown fences or adds explanation text
     let draft;
     try {
-      const cleaned = aiText.replace(/```json\n?/, '').replace(/```/, '');
+      const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+      const cleaned = jsonMatch ? jsonMatch[0] : aiText;
       draft = JSON.parse(cleaned);
     } catch {
       console.error("Failed to parse strictly as JSON:", aiText);
