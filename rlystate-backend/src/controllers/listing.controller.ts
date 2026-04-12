@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 import { AIService } from '../services/ai.service';
 import { StorageService } from '../services/storage.service';
 import { EmbeddingService } from '../services/embedding.service';
-import { checkImageSafety, checkProhibitedContent, checkPriceCeiling } from '../lib/moderation';
+import { checkImageSafety, checkProhibitedContent } from '../lib/moderation';
 
 export const uploadDirect = async (req: Request, res: Response) => {
   try {
