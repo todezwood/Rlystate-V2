@@ -168,7 +168,7 @@ export const SellerPage = () => {
       if (!res.ok) throw new Error(data.error || "Failed to evaluate listing");
       setDraft(data);
       setTipsDismissed(false);
-      if (data.suggestedTitle) setTitle(data.suggestedTitle);
+      if (data.suggestedTitle && !title) setTitle(data.suggestedTitle);
       setEditDescription(data.rationale);
       setEditAskingPrice(String(Math.round(data.suggestedHighPrice)));
       setEditFloorPrice(String(Math.round(data.suggestedLowPrice)));
