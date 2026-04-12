@@ -49,7 +49,7 @@ export async function checkImageSafety(base64Images: string[]): Promise<{ blocke
  */
 const PROHIBITED_TERMS = [
   'firearm', 'handgun', 'pistol', 'rifle', 'shotgun', 'ammunition', 'ammo',
-  'suppressor', 'silencer', 'ar-15', 'ar15',
+  'gun suppressor', 'silencer', 'ar-15', 'ar15',
   'cocaine', 'heroin', 'methamphetamine', 'fentanyl', 'oxycontin',
   'escort service', 'sex work', 'sexual service', 'prostitution',
   'dynamite', 'explosive', 'grenade', 'detonator',
@@ -59,7 +59,8 @@ const PROHIBITED_TERMS = [
 export function checkProhibitedContent(title: string, rationale: string): { blocked: boolean; reason?: string } {
   const text = `${title} ${rationale}`.toLowerCase();
   for (const term of PROHIBITED_TERMS) {
-    if (text.includes(term)) {
+    const pattern = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (pattern.test(text)) {
       return { blocked: true, reason: "This item can't be listed on Rlystate. It falls into a category we don't allow on the platform." };
     }
   }

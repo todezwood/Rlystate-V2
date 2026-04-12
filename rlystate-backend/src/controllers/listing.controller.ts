@@ -123,8 +123,12 @@ export const publishListing = async (req: Request, res: Response) => {
     const { title, description, imageUrls, askingPrice, floorPrice, suggestedHighPrice } = req.body;
 
     // Layer 4: Price ceiling enforcement (25% above AI suggested high)
-    if (suggestedHighPrice && askingPrice > Math.round(suggestedHighPrice * 1.25)) {
-      const maxPrice = Math.round(suggestedHighPrice * 1.25);
+    if (!suggestedHighPrice || suggestedHighPrice <= 0) {
+      res.status(400).json({ error: "Missing price estimate. Please re-analyze your item before publishing." });
+      return;
+    }
+    const maxPrice = Math.round(suggestedHighPrice * 1.25);
+    if (askingPrice > maxPrice) {
       res.status(400).json({ error: `Your asking price exceeds the maximum we allow for this item. Please set your price at $${maxPrice} or below.` });
       return;
     }
