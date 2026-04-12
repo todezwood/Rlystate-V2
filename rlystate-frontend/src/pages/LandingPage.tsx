@@ -114,6 +114,8 @@ export const LandingPage: React.FC = () => {
         })
         .catch(() => {
           setSignInError('Sign-in failed. Please try again.');
+        })
+        .finally(() => {
           setSignInProcessing(false);
         });
     }
