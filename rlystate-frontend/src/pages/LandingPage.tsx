@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 
 const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
+googleProvider.addScope('https://www.googleapis.com/auth/calendar.freebusy');
 
 const GoogleLogo: React.FC = () => (
   <svg width="18" height="18" viewBox="0 0 24 24">
