@@ -16,11 +16,12 @@ Use your knowledge of secondhand market values (eBay, Facebook Marketplace, simi
 
 Return ONLY a JSON object with this structure:
 {
+  "suggestedTitle": "<short, specific item title based on what you identify — brand, model, and type if visible>",
   "suggestedHighPrice": <number>,
   "suggestedLowPrice": <number>,
   "rationale": "<1-2 sentence market pricing note that honestly describes the item condition and basis for the price range>",
   "tips": [
-    "<specific observation from the photo + one actionable fix to help the seller get a better price>"
+    "<specific photo-grounded observation + one actionable fix>"
   ]
 }
 
@@ -28,8 +29,9 @@ Rules for tips:
 - Return at most 2 tips.
 - Each tip must be grounded in something you actually observe in the photos, not generic advice.
 - If you observe no specific issues, return an empty array. Do not invent tips.
-- Write tips in an encouraging tone. Example: "We noticed the surface looks a bit dusty in the photos. A quick wipe-down before reshooting could make a real difference."
-- Do not include dollar estimates in tips.`;
+- Keep each tip tight: 1-2 short sentences, 20-25 words maximum. Lead with what you noticed, follow with the fix.
+- Mention specific tools or methods when genuinely useful (e.g. microfiber cloth, stainless steel cleaner) but do not pad.
+- Write in an encouraging tone. Do not include dollar estimates.`;
 
     const contentBlocks: Anthropic.Messages.ContentBlockParam[] = [];
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
 interface ListingDraft {
+  suggestedTitle?: string;
   suggestedHighPrice: number;
   suggestedLowPrice: number;
   rationale: string;
@@ -167,6 +168,7 @@ export const SellerPage = () => {
       if (!res.ok) throw new Error(data.error || "Failed to evaluate listing");
       setDraft(data);
       setTipsDismissed(false);
+      if (data.suggestedTitle) setTitle(data.suggestedTitle);
       setEditDescription(data.rationale);
       setEditAskingPrice(String(Math.round(data.suggestedHighPrice)));
       setEditFloorPrice(String(Math.round(data.suggestedLowPrice)));
