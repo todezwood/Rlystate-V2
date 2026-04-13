@@ -13,9 +13,10 @@ interface ListingDetailOverlayProps {
     isOwn?: boolean;
   };
   onClose: () => void;
+  onNegotiateAI?: () => void;
 }
 
-export const ListingDetailOverlay: React.FC<ListingDetailOverlayProps> = ({ listing, onClose }) => {
+export const ListingDetailOverlay: React.FC<ListingDetailOverlayProps> = ({ listing, onClose, onNegotiateAI }) => {
   const navigate = useNavigate();
   const [visible, setVisible] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
@@ -247,7 +248,7 @@ export const ListingDetailOverlay: React.FC<ListingDetailOverlayProps> = ({ list
                   Negotiate
                 </button>
                 <button
-                  onClick={() => { navigatingAway.current = true; navigate(`/interact/${listing.id}`); }}
+                  onClick={() => { if (onNegotiateAI) onNegotiateAI(); }}
                   style={{
                     flex: 1,
                     padding: '12px',

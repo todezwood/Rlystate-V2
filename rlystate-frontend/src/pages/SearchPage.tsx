@@ -250,6 +250,11 @@ export const SearchPage = () => {
         <ListingDetailOverlay
           listing={selectedListing}
           onClose={() => setSelectedListing(null)}
+          onNegotiateAI={() => {
+            const listing = selectedListing;
+            setSelectedListing(null);
+            setSheetListing(listing);
+          }}
         />
       )}
 
