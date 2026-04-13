@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageSquare } from 'lucide-react';
 import { api } from '../lib/api';
+import { ListingDetailOverlay } from '../components/ListingDetailOverlay';
 
 interface Listing {
   id: string;
@@ -17,6 +18,23 @@ export const FeedPage = () => {
   const navigate = useNavigate();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+
+  // Swipe guard: track pointer start to distinguish taps from swipes
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    pointerStart.current = { x: e.clientX, y: e.clientY };
+  }, []);
+  const handleCardClick = useCallback((listing: Listing) => {
+    return (e: React.MouseEvent) => {
+      if (pointerStart.current) {
+        const dx = e.clientX - pointerStart.current.x;
+        const dy = e.clientY - pointerStart.current.y;
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) return;
+      }
+      setSelectedListing(listing);
+    };
+  }, []);
 
   useEffect(() => {
     api('/api/listings')
@@ -45,7 +63,7 @@ export const FeedPage = () => {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {listings.map(listing => (
-            <div key={listing.id} style={{ backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div key={listing.id} onPointerDown={handlePointerDown} onClick={handleCardClick(listing)} style={{ backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
 
               <div style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollbarWidth: 'none', height: '240px', backgroundColor: 'var(--bg-secondary)' }}>
                 {((listing.imageUrls?.length ?? 0) > 0 ? listing.imageUrls! : [listing.imageUrl]).map((url: string, i: number) => (
@@ -64,7 +82,7 @@ export const FeedPage = () => {
                 </p>
 
                 <button
-                  onClick={() => navigate(`/interact/${listing.id}`)}
+                  onClick={(e) => { e.stopPropagation(); navigate(`/interact/${listing.id}`); }}
                   style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', padding: '12px', borderRadius: 'var(--radius-sm)', border: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer', transition: 'all 0.2s' }}>
                   <MessageSquare size={18} /> Negotiate with AI
                 </button>
@@ -72,6 +90,12 @@ export const FeedPage = () => {
             </div>
           ))}
         </div>
+      )}
+      {selectedListing && (
+        <ListingDetailOverlay
+          listing={selectedListing}
+          onClose={() => setSelectedListing(null)}
+        />
       )}
     </div>
   );

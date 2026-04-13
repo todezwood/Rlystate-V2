@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { signInWithRedirect, getRedirectResult, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithRedirect, signInWithPopup, getRedirectResult, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
@@ -73,7 +73,13 @@ export const LandingPage: React.FC = () => {
   const [signInError, setSignInError] = useState<string | null>(null);
   const [signInProcessing, setSignInProcessing] = useState(true);
 
+  const isLocalhost = window.location.hostname === 'localhost';
+
   useEffect(() => {
+    if (isLocalhost) {
+      setSignInProcessing(false);
+      return;
+    }
     getRedirectResult(auth)
       .then(result => {
         if (!result) return;
@@ -93,10 +99,27 @@ export const LandingPage: React.FC = () => {
       });
   }, []);
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     setSignInError(null);
     setSignInProcessing(true);
-    signInWithRedirect(auth, googleProvider);
+    if (isLocalhost) {
+      try {
+        const result = await signInWithPopup(auth, googleProvider);
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) {
+          api('/api/auth/connect-calendar', {
+            method: 'POST',
+            body: JSON.stringify({ accessToken: credential.accessToken }),
+          }).catch(() => {});
+        }
+      } catch {
+        setSignInError('Sign-in failed. Please try again.');
+      } finally {
+        setSignInProcessing(false);
+      }
+    } else {
+      signInWithRedirect(auth, googleProvider);
+    }
   };
 
   if (userId) return <Navigate to="/feed" replace />;

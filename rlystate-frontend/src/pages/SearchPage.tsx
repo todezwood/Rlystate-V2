@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
 import { api } from '../lib/api';
 import { AutoNegotiateSheet } from '../components/AutoNegotiateSheet';
+import { ListingDetailOverlay } from '../components/ListingDetailOverlay';
 
 const resizeImage = (file: File, maxDim = 1568): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -51,6 +52,23 @@ export const SearchPage = () => {
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const [sheetListing, setSheetListing] = useState<Listing | null>(null);
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+
+  // Swipe guard: track pointer start to distinguish taps from swipes
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    pointerStart.current = { x: e.clientX, y: e.clientY };
+  }, []);
+  const handleCardClick = useCallback((listing: Listing) => {
+    return (e: React.MouseEvent) => {
+      if (pointerStart.current) {
+        const dx = e.clientX - pointerStart.current.x;
+        const dy = e.clientY - pointerStart.current.y;
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) return;
+      }
+      setSelectedListing(listing);
+    };
+  }, []);
 
   useEffect(() => {
     api('/api/listings')
@@ -183,7 +201,7 @@ export const SearchPage = () => {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {displayListings.map((listing) => (
-            <div key={listing.id} style={{ backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div key={listing.id} onPointerDown={handlePointerDown} onClick={handleCardClick(listing)} style={{ backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' }}>
               <div style={{ display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', scrollbarWidth: 'none', height: 240, backgroundColor: 'var(--bg-secondary)' }}>
                 {((listing.imageUrls?.length ?? 0) > 0 ? listing.imageUrls! : [listing.imageUrl]).map((url: string, i: number) => (
                   <div key={i} style={{ flex: '0 0 100%', height: '100%', scrollSnapAlign: 'start', backgroundImage: `url(${url})`, backgroundPosition: 'center', backgroundSize: 'cover' }} />
@@ -209,13 +227,13 @@ export const SearchPage = () => {
                 ) : (
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
-                      onClick={() => navigate(`/interact/${listing.id}?mode=manual`)}
+                      onClick={(e) => { e.stopPropagation(); navigate(`/interact/${listing.id}?mode=manual`); }}
                       style={{ flex: 1, padding: '10px', borderRadius: 10, background: 'transparent', border: '1.5px solid rgba(255,255,255,0.15)', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem' }}
                     >
                       Negotiate
                     </button>
                     <button
-                      onClick={() => setSheetListing(listing)}
+                      onClick={(e) => { e.stopPropagation(); setSheetListing(listing); }}
                       style={{ flex: 1, padding: '10px', borderRadius: 10, background: 'var(--accent)', border: 'none', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem' }}
                     >
                       Negotiate with AI
@@ -226,6 +244,13 @@ export const SearchPage = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {selectedListing && (
+        <ListingDetailOverlay
+          listing={selectedListing}
+          onClose={() => setSelectedListing(null)}
+        />
       )}
 
       {sheetListing && (
