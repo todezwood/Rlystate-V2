@@ -21,6 +21,7 @@ export const ListingDetailOverlay: React.FC<ListingDetailOverlayProps> = ({ list
   const [activeImage, setActiveImage] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const navigatingAway = useRef(false);
 
   const images = (listing.imageUrls?.length ?? 0) > 0 ? listing.imageUrls! : [listing.imageUrl];
   const showDots = images.length > 1;
@@ -52,7 +53,7 @@ export const ListingDetailOverlay: React.FC<ListingDetailOverlayProps> = ({ list
     window.addEventListener('popstate', handler);
     return () => {
       window.removeEventListener('popstate', handler);
-      if (!closedByPopstate.current) window.history.back();
+      if (!closedByPopstate.current && !navigatingAway.current) window.history.back();
     };
   }, [onClose]);
 
@@ -112,9 +113,14 @@ export const ListingDetailOverlay: React.FC<ListingDetailOverlayProps> = ({ list
       >
         <div
           style={{
+            position: 'relative',
             maxWidth: 480,
             width: '100%',
-            paddingBottom: 40,
+            marginTop: 48,
+            marginBottom: 40,
+            borderRadius: 20,
+            overflow: 'hidden',
+            background: 'var(--bg-secondary)',
             alignSelf: 'flex-start',
           }}
           onClick={(e) => e.stopPropagation()}
@@ -123,10 +129,9 @@ export const ListingDetailOverlay: React.FC<ListingDetailOverlayProps> = ({ list
           <button
             onClick={onClose}
             style={{
-              position: 'sticky',
-              top: 16,
-              float: 'right',
-              marginRight: 16,
+              position: 'absolute',
+              top: 12,
+              right: 12,
               width: 36,
               height: 36,
               borderRadius: '50%',
@@ -226,7 +231,7 @@ export const ListingDetailOverlay: React.FC<ListingDetailOverlayProps> = ({ list
             {!listing.isOwn && (
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  onClick={() => navigate(`/interact/${listing.id}?mode=manual`)}
+                  onClick={() => { navigatingAway.current = true; navigate(`/interact/${listing.id}?mode=manual`); }}
                   style={{
                     flex: 1,
                     padding: '12px',
@@ -242,7 +247,7 @@ export const ListingDetailOverlay: React.FC<ListingDetailOverlayProps> = ({ list
                   Negotiate
                 </button>
                 <button
-                  onClick={() => navigate(`/interact/${listing.id}`)}
+                  onClick={() => { navigatingAway.current = true; navigate(`/interact/${listing.id}`); }}
                   style={{
                     flex: 1,
                     padding: '12px',
