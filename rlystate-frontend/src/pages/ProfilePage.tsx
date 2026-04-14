@@ -225,23 +225,44 @@ export const ProfilePage = () => {
             </div>
           </div>
           {!profileLoading && (
-            <button
-              onClick={profile?.calendarConnected ? handleDisconnectCalendar : handleConnectCalendar}
-              disabled={calendarBusy}
-              style={{
-                background: 'none',
-                border: `1px solid ${profile?.calendarConnected ? 'rgba(255,255,255,0.12)' : 'rgba(94,106,210,0.5)'}`,
-                color: profile?.calendarConnected ? 'var(--text-secondary)' : 'var(--accent)',
-                padding: '6px 12px',
-                borderRadius: 8,
-                cursor: calendarBusy ? 'not-allowed' : 'pointer',
-                fontSize: '0.78rem',
-                fontWeight: 500,
-                opacity: calendarBusy ? 0.5 : 1,
-              }}
-            >
-              {calendarBusy ? '...' : profile?.calendarConnected ? 'Disconnect' : 'Connect'}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {profile?.calendarConnected && (
+                <button
+                  onClick={handleDisconnectCalendar}
+                  disabled={calendarBusy}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-secondary)',
+                    cursor: calendarBusy ? 'not-allowed' : 'pointer',
+                    fontSize: '0.72rem',
+                    fontWeight: 500,
+                    padding: 0,
+                    opacity: calendarBusy ? 0.5 : 1,
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Disconnect
+                </button>
+              )}
+              <button
+                onClick={handleConnectCalendar}
+                disabled={calendarBusy}
+                style={{
+                  background: 'none',
+                  border: '1px solid rgba(94,106,210,0.5)',
+                  color: 'var(--accent)',
+                  padding: '6px 12px',
+                  borderRadius: 8,
+                  cursor: calendarBusy ? 'not-allowed' : 'pointer',
+                  fontSize: '0.78rem',
+                  fontWeight: 500,
+                  opacity: calendarBusy ? 0.5 : 1,
+                }}
+              >
+                {calendarBusy ? '...' : profile?.calendarConnected ? 'Reconnect' : 'Connect'}
+              </button>
+            </div>
           )}
         </div>
 
