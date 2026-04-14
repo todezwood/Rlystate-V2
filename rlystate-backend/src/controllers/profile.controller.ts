@@ -16,7 +16,7 @@ export const getProfile = async (req: Request, res: Response) => {
       phone: user.phone,
       zipCode: user.zipCode,
       photoUrl: user.photoUrl,
-      calendarConnected: !!user.googleCalendarAccessToken,
+      calendarConnected: !!user.googleCalendarAccessToken && !!user.googleCalendarRefreshToken,
     });
   } catch (error) {
     console.error('[profile] getProfile error:', error);
@@ -68,7 +68,7 @@ export const updateProfile = async (req: Request, res: Response) => {
       phone: user.phone,
       zipCode: user.zipCode,
       photoUrl: user.photoUrl,
-      calendarConnected: !!user.googleCalendarAccessToken,
+      calendarConnected: !!user.googleCalendarAccessToken && !!user.googleCalendarRefreshToken,
     });
   } catch (error) {
     console.error('[profile] updateProfile error:', error);

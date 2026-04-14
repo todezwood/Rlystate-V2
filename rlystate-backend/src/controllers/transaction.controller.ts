@@ -33,7 +33,7 @@ export const simulateDeposit = async (req: Request, res: Response) => {
 
     const [transaction] = await prisma.$transaction([
       prisma.transaction.create({
-        data: { listingId, buyerId, amount, status: "COMPLETED" }
+        data: { listingId, buyerId, amount, status: "DEPOSIT_HELD" }
       }),
       prisma.listing.update({
         where: { id: listingId },

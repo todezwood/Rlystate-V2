@@ -3,11 +3,8 @@ import { Navigate } from 'react-router-dom';
 import { signInWithRedirect, signInWithPopup, getRedirectResult, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../lib/api';
 
 const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
-googleProvider.addScope('https://www.googleapis.com/auth/calendar.freebusy');
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 const GoogleLogo: React.FC = () => (
@@ -83,13 +80,6 @@ export const LandingPage: React.FC = () => {
     getRedirectResult(auth)
       .then(result => {
         if (!result) return;
-        const credential = GoogleAuthProvider.credentialFromResult(result);
-        if (credential?.accessToken) {
-          api('/api/auth/connect-calendar', {
-            method: 'POST',
-            body: JSON.stringify({ accessToken: credential.accessToken }),
-          }).catch(() => {});
-        }
       })
       .catch(() => {
         setSignInError('Sign-in failed. Please try again.');
@@ -104,14 +94,7 @@ export const LandingPage: React.FC = () => {
     setSignInProcessing(true);
     if (isLocalhost) {
       try {
-        const result = await signInWithPopup(auth, googleProvider);
-        const credential = GoogleAuthProvider.credentialFromResult(result);
-        if (credential?.accessToken) {
-          api('/api/auth/connect-calendar', {
-            method: 'POST',
-            body: JSON.stringify({ accessToken: credential.accessToken }),
-          }).catch(() => {});
-        }
+        await signInWithPopup(auth, googleProvider);
       } catch {
         setSignInError('Sign-in failed. Please try again.');
       } finally {

@@ -9,6 +9,7 @@ import transactionRoutes from './routes/transaction.routes';
 import buyerRoutes, { profileRouter } from './routes/buyer.routes';
 import authRoutes from './routes/auth.routes';
 import coordinationRoutes from './routes/coordination.routes';
+import { handleCalendarCallback } from './controllers/auth.controller';
 
 dotenv.config();
 
@@ -21,6 +22,10 @@ app.use(express.urlencoded({ limit: '2mb', extended: true }));
 
 // Serve local uploads directory (dev only — production uses GCS CDN URLs)
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+
+// OAuth callback — must be registered before authMiddleware because Google
+// redirects the browser here without an Authorization header.
+app.get('/api/auth/calendar/callback', handleCalendarCallback);
 
 // Protected routes
 app.use('/api/listings', authMiddleware, listingRoutes);

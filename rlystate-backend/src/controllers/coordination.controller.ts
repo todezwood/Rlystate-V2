@@ -6,6 +6,20 @@ export const getSlots = async (req: Request, res: Response) => {
     const { listingId } = req.params;
     const timezone = (req.query.timezone as string) || 'America/New_York';
     const result = await getPickupSlots(listingId, timezone);
+
+    if (!Array.isArray(result)) {
+      if ('noCalendar' in result) {
+        res.status(404).json(result);
+        return;
+      }
+      if ('error' in result && result.error === 'calendar_token_expired') {
+        res.status(503).json(result);
+        return;
+      }
+      res.status(400).json(result);
+      return;
+    }
+
     res.json(result);
   } catch (error) {
     console.error('[coordination] getSlots error:', error);

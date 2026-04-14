@@ -1,7 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 
@@ -27,6 +25,7 @@ interface DealItem {
 export const ProfilePage = () => {
   const { displayName, photoURL, logout } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -35,6 +34,7 @@ export const ProfilePage = () => {
   const [dealsLoading, setDealsLoading] = useState(true);
 
   const [calendarBusy, setCalendarBusy] = useState(false);
+  const [calendarNotice, setCalendarNotice] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -58,6 +58,18 @@ export const ProfilePage = () => {
       .catch(() => setDealsLoading(false));
   }, [fetchProfile]);
 
+  // Handle return from Google OAuth calendar connect flow
+  useEffect(() => {
+    const calendarParam = searchParams.get('calendar');
+    if (calendarParam === 'connected') {
+      setCalendarNotice('Calendar connected successfully.');
+      setSearchParams({}, { replace: true });
+    } else if (calendarParam === 'error') {
+      setCalendarNotice('Could not connect calendar. Please try again.');
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -73,23 +85,15 @@ export const ProfilePage = () => {
   const handleConnectCalendar = async () => {
     setCalendarBusy(true);
     try {
-      const provider = new GoogleAuthProvider();
-      provider.addScope('https://www.googleapis.com/auth/calendar.events');
-      provider.addScope('https://www.googleapis.com/auth/calendar.freebusy');
-      const result = await signInWithPopup(auth, provider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      if (credential?.accessToken) {
-        await api('/api/auth/connect-calendar', {
-          method: 'POST',
-          body: JSON.stringify({ accessToken: credential.accessToken }),
-        });
-        fetchProfile();
-      }
+      const res = await api('/api/auth/calendar/connect');
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || 'Failed to start calendar connect');
+      window.location.href = data.url;
     } catch (err) {
       console.error('Calendar connect error:', err);
-    } finally {
       setCalendarBusy(false);
     }
+    // Do not reset calendarBusy here — the page will navigate away on success.
   };
 
   const handleDisconnectCalendar = async () => {
@@ -240,6 +244,12 @@ export const ProfilePage = () => {
             </button>
           )}
         </div>
+
+        {calendarNotice && (
+          <div style={{ marginTop: 8, fontSize: '0.75rem', color: calendarNotice.includes('successfully') ? 'var(--positive)' : '#F87171' }}>
+            {calendarNotice}
+          </div>
+        )}
 
         {/* Log out */}
         <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'right' }}>

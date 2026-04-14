@@ -67,6 +67,7 @@ export const InteractPage = () => {
   const [declineError, setDeclineError] = useState<string | null>(null);
   const [confirmingDecline, setConfirmingDecline] = useState(false);
   const [coordPhase, setCoordPhase] = useState<CoordPhase>('idle');
+  const [coordError, setCoordError] = useState<string | null>(null);
   const [slots, setSlots] = useState<PickupSlot[]>([]);
   const [calendarLink, setCalendarLink] = useState<string | null>(null);
   const [messageQueue, setMessageQueue] = useState<Message[]>([]);
@@ -222,7 +223,17 @@ export const InteractPage = () => {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const slotsRes = await api(`/api/coordination/${id}/slots?timezone=${encodeURIComponent(tz)}`);
       const slotsData = await slotsRes.json();
-      if (!slotsRes.ok || slotsData.noCalendar || slotsData.error || !Array.isArray(slotsData) || slotsData.length === 0) {
+      if (slotsRes.status === 404) {
+        setCoordError('The seller has not connected their calendar. Coordinate pickup directly with them.');
+        setCoordPhase('no_calendar');
+      } else if (slotsRes.status === 503) {
+        setCoordError("The seller's calendar connection needs to be renewed. Ask them to reconnect in their profile.");
+        setCoordPhase('no_calendar');
+      } else if (!slotsRes.ok) {
+        setCoordError('Could not load pickup times. Try again in a moment.');
+        setCoordPhase('no_calendar');
+      } else if (!Array.isArray(slotsData) || slotsData.length === 0) {
+        setCoordError('No available slots in the next two weeks. Coordinate pickup directly with the seller.');
         setCoordPhase('no_calendar');
       } else {
         setSlots(slotsData);
@@ -342,6 +353,7 @@ export const InteractPage = () => {
                       });
                       const data = await res.json();
                       if (!res.ok || data.error) {
+                        setCoordError('Could not schedule that time slot. Coordinate pickup directly with the seller.');
                         setCoordPhase('no_calendar');
                       } else {
                         setCalendarLink(data.htmlLink ?? null);
@@ -394,7 +406,9 @@ export const InteractPage = () => {
           {(coordPhase === 'no_calendar' || coordPhase === 'idle') && (
             <>
               <h4 style={{ color: 'var(--positive)', marginBottom: 6, fontSize: '0.95rem' }}>Deal locked in</h4>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 12 }}>Coordinate pickup directly with the seller.</p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 12 }}>
+                {coordError || 'Coordinate pickup directly with the seller.'}
+              </p>
               <button
                 onClick={() => navigate('/profile')}
                 style={{ width: '100%', background: 'none', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-secondary)', borderRadius: 'var(--radius-sm)', padding: '11px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}

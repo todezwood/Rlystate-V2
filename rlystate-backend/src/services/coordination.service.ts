@@ -23,7 +23,7 @@ function isGoogleAuthError(err: unknown): boolean {
   return e?.response?.status === 401 || e?.code === 401 || e?.status === 401;
 }
 
-function buildOAuthClient(accessToken: string, refreshToken?: string | null) {
+function buildOAuthClient(accessToken: string, refreshToken: string | null | undefined, userId: string) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
@@ -33,6 +33,15 @@ function buildOAuthClient(accessToken: string, refreshToken?: string | null) {
   auth.setCredentials({
     access_token: accessToken,
     ...(refreshToken ? { refresh_token: refreshToken } : {}),
+  });
+  // Persist refreshed access tokens so the next call doesn't need another round-trip to Google.
+  auth.on('tokens', async (tokens) => {
+    if (tokens.access_token) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { googleCalendarAccessToken: tokens.access_token },
+      }).catch(err => console.error('[coordination] failed to persist refreshed access token:', err));
+    }
   });
   return auth;
 }
@@ -119,6 +128,7 @@ export async function getPickupSlots(
     include: {
       seller: {
         select: {
+          id: true,
           googleCalendarAccessToken: true,
           googleCalendarRefreshToken: true,
           email: true,
@@ -128,12 +138,13 @@ export async function getPickupSlots(
   });
 
   if (!listing) return { error: 'Listing not found' };
-  if (!listing.seller.googleCalendarAccessToken) return { noCalendar: true };
+  if (!listing.seller.googleCalendarAccessToken || !listing.seller.googleCalendarRefreshToken) return { noCalendar: true };
 
   try {
     const auth = buildOAuthClient(
       listing.seller.googleCalendarAccessToken,
-      listing.seller.googleCalendarRefreshToken
+      listing.seller.googleCalendarRefreshToken,
+      listing.seller.id
     );
     const calendar = google.calendar({ version: 'v3', auth });
 
@@ -196,6 +207,7 @@ export async function bookPickupSlot(
     include: {
       seller: {
         select: {
+          id: true,
           googleCalendarAccessToken: true,
           googleCalendarRefreshToken: true,
           email: true,
@@ -204,7 +216,7 @@ export async function bookPickupSlot(
     },
   });
   if (!listing) return { error: 'Listing not found' };
-  if (!listing.seller.googleCalendarAccessToken) return { error: 'no_calendar' };
+  if (!listing.seller.googleCalendarAccessToken || !listing.seller.googleCalendarRefreshToken) return { error: 'no_calendar' };
 
   const buyer = await prisma.user.findUnique({
     where: { id: buyerId },
@@ -215,7 +227,8 @@ export async function bookPickupSlot(
   try {
     const auth = buildOAuthClient(
       listing.seller.googleCalendarAccessToken,
-      listing.seller.googleCalendarRefreshToken
+      listing.seller.googleCalendarRefreshToken,
+      listing.seller.id
     );
     const calendar = google.calendar({ version: 'v3', auth });
 
